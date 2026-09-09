@@ -133,14 +133,19 @@ function CompanyOverviewContent() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Button
+            <button
               type="button"
               onClick={() => setShowEstateNotice(true)}
-              className="gap-1.5 text-xs font-medium rounded-xl h-8 px-3 bg-brand-green-900 text-white hover:bg-brand-green-800"
+              className={buttonVariants({
+                variant: "default",
+                size: "sm",
+                className:
+                  "gap-1.5 text-xs font-medium rounded-xl h-8 px-3 bg-brand-green-900 text-white hover:bg-brand-green-800 shadow-xs",
+              })}
             >
               <HugeiconsIcon icon={PlusSignIcon} size={14} />
               <span className="hidden sm:inline">Register estate</span>
-            </Button>
+            </button>
           </div>
         </header>
 
@@ -215,9 +220,7 @@ function CompanyOverviewContent() {
             <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
               <div className="text-xs font-medium text-muted-foreground">Managed Plots</div>
               <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">0</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                0 reserved · 0 available
-              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">0 reserved · 0 available</div>
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-5 shadow-xs">
