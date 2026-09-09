@@ -32,7 +32,11 @@ export function SignUpClient() {
   // If already signed in, immediately forward to continuation destination
   React.useEffect(() => {
     if (isAuthLoaded && isSignedIn) {
-      router.replace(finalRedirectUrl);
+      if (finalRedirectUrl.startsWith("http")) {
+        window.location.replace(finalRedirectUrl);
+      } else {
+        router.replace(finalRedirectUrl);
+      }
     }
   }, [isAuthLoaded, isSignedIn, finalRedirectUrl, router]);
 
@@ -215,6 +219,21 @@ export function SignUpClient() {
   };
 
   const isAnyLoading = isSubmitting || !!loadingSocial || fetchStatus === "fetching";
+
+  if (isAuthLoaded && isSignedIn) {
+    return (
+      <AuthFormPanel
+        mode="sign-up"
+        title="Connecting your session..."
+        subtitle="You are already authenticated. Taking you to your destination..."
+      >
+        <div className="flex h-36 flex-col items-center justify-center space-y-3">
+          <div className="h-7 w-7 rounded-full border-2 border-brand-green-900 border-t-transparent animate-spin dark:border-brand-green-400" />
+          <p className="text-xs text-muted-foreground">Taking you to AsaseLink...</p>
+        </div>
+      </AuthFormPanel>
+    );
+  }
 
   return (
     <AuthFormPanel

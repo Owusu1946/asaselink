@@ -17,14 +17,18 @@ export function SignInClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const redirectUrl = searchParams?.get("redirect_url") || "/auth/continue";
+  const rawRedirectUrl = searchParams?.get("redirect_url") || "/auth/continue";
 
   // If already signed in, immediately forward to continuation destination
   React.useEffect(() => {
     if (isAuthLoaded && isSignedIn) {
-      router.replace(redirectUrl);
+      if (rawRedirectUrl.startsWith("http")) {
+        window.location.replace(rawRedirectUrl);
+      } else {
+        router.replace(rawRedirectUrl);
+      }
     }
-  }, [isAuthLoaded, isSignedIn, redirectUrl, router]);
+  }, [isAuthLoaded, isSignedIn, rawRedirectUrl, router]);
 
   const [step, setStep] = React.useState<"identifier" | "otp">("identifier");
   const [activeIdentifier, setActiveIdentifier] = React.useState("");
@@ -48,7 +52,9 @@ export function SignInClient() {
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const callbackUrl = `${origin}/sso-callback`;
-      const destination = `${origin}${redirectUrl}`;
+      const destination = rawRedirectUrl.startsWith("http")
+        ? rawRedirectUrl
+        : `${origin}${rawRedirectUrl}`;
 
       const { error } = await signIn.sso({
         strategy,
@@ -118,7 +124,7 @@ export function SignInClient() {
         const destination =
           session.currentTask && session.currentTask.key !== "choose-organization"
             ? `/sign-in/tasks/${session.currentTask.key}`
-            : redirectUrl;
+            : rawRedirectUrl;
         const targetUrl = decorateUrl(destination);
         if (targetUrl.startsWith("http")) {
           window.location.href = targetUrl;
@@ -190,6 +196,21 @@ export function SignInClient() {
   const isAnyLoading = isSubmitting || !!loadingSocial || fetchStatus === "fetching";
 
   const isSignedUp = searchParams?.get("signed_up") === "true";
+
+  if (isAuthLoaded && isSignedIn) {
+    return (
+      <AuthFormPanel
+        mode="sign-in"
+        title="Connecting your session..."
+        subtitle="You are already authenticated. Taking you to your destination..."
+      >
+        <div className="flex h-36 flex-col items-center justify-center space-y-3">
+          <div className="h-7 w-7 rounded-full border-2 border-brand-green-900 border-t-transparent animate-spin dark:border-brand-green-400" />
+          <p className="text-xs text-muted-foreground">Taking you to AsaseLink...</p>
+        </div>
+      </AuthFormPanel>
+    );
+  }
 
   return (
     <AuthFormPanel
