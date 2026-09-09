@@ -38,10 +38,14 @@ export function SignInClient() {
     setErrorMessage(null);
 
     try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const callbackUrl = `${origin}/sso-callback`;
+      const destination = `${origin}${redirectUrl}`;
+
       const { error } = await signIn.sso({
         strategy,
-        redirectUrl,
-        redirectCallbackUrl: "/sso-callback",
+        redirectUrl: destination,
+        redirectCallbackUrl: callbackUrl,
       });
 
       if (error) {

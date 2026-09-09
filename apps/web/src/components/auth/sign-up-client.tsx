@@ -47,10 +47,14 @@ export function SignUpClient() {
     setErrorMessage(null);
 
     try {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const callbackUrl = `${origin}/sso-callback`;
+      const destination = `${origin}${finalRedirectUrl}`;
+
       const { error } = await signUp.sso({
         strategy,
-        redirectUrl: finalRedirectUrl,
-        redirectCallbackUrl: "/sso-callback",
+        redirectUrl: destination,
+        redirectCallbackUrl: callbackUrl,
       });
 
       if (error) {

@@ -9,8 +9,11 @@ export default function SSOCallbackPage() {
         <p className="text-xs text-muted-foreground">Securing your session with AsaseLink</p>
       </div>
       <AuthenticateWithRedirectCallback
+        signInForceRedirectUrl="/auth/continue"
+        signUpForceRedirectUrl="/auth/continue"
         signInFallbackRedirectUrl="/auth/continue"
         signUpFallbackRedirectUrl="/auth/continue"
+        continueSignUpUrl="/auth/continue"
       />
     </div>
   );
