@@ -44,7 +44,8 @@ function AccountContent() {
               </div>
               <h2 className="text-base font-semibold text-foreground">Explore Verified Estates</h2>
               <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                Search verified land parcels by district, estate master plan, and cadastral survey boundaries.
+                Search verified land parcels by district, estate master plan, and cadastral survey
+                boundaries.
               </p>
             </div>
             <div className="mt-6">
@@ -69,7 +70,8 @@ function AccountContent() {
               </div>
               <h2 className="text-base font-semibold text-foreground">Land Company Workspace</h2>
               <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                Are you an estate developer or customary landholder? Apply to verify and list your layout.
+                Are you an estate developer or customary landholder? Apply to verify and list your
+                layout.
               </p>
             </div>
             <div className="mt-6">
@@ -94,7 +96,8 @@ function AccountContent() {
               </div>
               <h2 className="text-base font-semibold text-foreground">Document Protection</h2>
               <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
-                All reservations are cryptographically protected and reconciled with Ghana Lands Commission data.
+                All reservations are cryptographically protected and reconciled with Ghana Lands
+                Commission data.
               </p>
             </div>
             <div className="mt-6">
@@ -103,7 +106,8 @@ function AccountContent() {
                 className={buttonVariants({
                   variant: "ghost",
                   size: "sm",
-                  className: "w-full justify-center font-medium text-xs text-muted-foreground hover:text-foreground",
+                  className:
+                    "w-full justify-center font-medium text-xs text-muted-foreground hover:text-foreground",
                 })}
               >
                 Update contact profile &rarr;
@@ -115,7 +119,10 @@ function AccountContent() {
         {/* Empty State: Reservations */}
         <section aria-labelledby="reservations-heading" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 id="reservations-heading" className="text-lg font-semibold tracking-tight text-foreground">
+            <h2
+              id="reservations-heading"
+              className="text-lg font-semibold tracking-tight text-foreground"
+            >
               My Land Reservations
             </h2>
             <span className="text-xs text-muted-foreground font-mono">0 active</span>

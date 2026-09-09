@@ -8,12 +8,7 @@ interface AuthFormPanelProps {
   children: React.ReactNode;
 }
 
-export function AuthFormPanel({
-  mode,
-  title,
-  subtitle,
-  children,
-}: AuthFormPanelProps) {
+export function AuthFormPanel({ mode, title, subtitle, children }: AuthFormPanelProps) {
   return (
     <section aria-labelledby="auth-heading" className="w-full flex flex-col">
       {/* Top Segmented Mode Switch */}
@@ -29,15 +24,11 @@ export function AuthFormPanel({
         >
           {title}
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          {subtitle}
-        </p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
       {/* Form Content */}
-      <div className="w-full">
-        {children}
-      </div>
+      <div className="w-full">{children}</div>
     </section>
   );
 }

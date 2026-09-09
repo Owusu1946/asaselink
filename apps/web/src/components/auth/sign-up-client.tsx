@@ -54,7 +54,9 @@ export function SignUpClient() {
       });
 
       if (error) {
-        setErrorMessage(error.message || "Failed to start sign up with provider. Please try again.");
+        setErrorMessage(
+          error.message || "Failed to start sign up with provider. Please try again.",
+        );
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Social sign-up failed. Please try again.";
@@ -79,7 +81,9 @@ export function SignUpClient() {
         });
 
         if (createErr) {
-          setErrorMessage(createErr.message || "Unable to create account. Please verify your email.");
+          setErrorMessage(
+            createErr.message || "Unable to create account. Please verify your email.",
+          );
           return;
         }
 
@@ -94,7 +98,9 @@ export function SignUpClient() {
         });
 
         if (createErr) {
-          setErrorMessage(createErr.message || "Unable to create account. Please verify your phone number.");
+          setErrorMessage(
+            createErr.message || "Unable to create account. Please verify your phone number.",
+          );
           return;
         }
 
@@ -107,7 +113,8 @@ export function SignUpClient() {
 
       setStep("otp");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "An unexpected error occurred. Please try again.";
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
@@ -159,7 +166,8 @@ export function SignUpClient() {
         setErrorMessage("Verification requires additional requirements.");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Code verification failed. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "Code verification failed. Please try again.";
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
@@ -243,10 +251,7 @@ export function SignUpClient() {
             </div>
 
             {/* Identifier Form */}
-            <IdentifierForm
-              isLoading={isAnyLoading}
-              onSubmit={handleIdentifierSubmit}
-            />
+            <IdentifierForm isLoading={isAnyLoading} onSubmit={handleIdentifierSubmit} />
 
             {/* Required bot captcha container */}
             <ClerkCaptchaMount />

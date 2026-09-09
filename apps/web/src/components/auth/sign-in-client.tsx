@@ -48,7 +48,8 @@ export function SignInClient() {
         setErrorMessage(error.message || "Failed to connect with provider. Please try again.");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "An unexpected error occurred during social login.";
+      const msg =
+        err instanceof Error ? err.message : "An unexpected error occurred during social login.";
       setErrorMessage(msg);
     } finally {
       setLoadingSocial(null);
@@ -70,7 +71,9 @@ export function SignInClient() {
         });
 
         if (error) {
-          setErrorMessage(error.message || "Could not send verification code. Please check your email.");
+          setErrorMessage(
+            error.message || "Could not send verification code. Please check your email.",
+          );
           return;
         }
       } else {
@@ -79,7 +82,9 @@ export function SignInClient() {
         });
 
         if (error) {
-          setErrorMessage(error.message || "Could not send SMS code. Please check your phone number.");
+          setErrorMessage(
+            error.message || "Could not send SMS code. Please check your phone number.",
+          );
           return;
         }
       }
@@ -138,7 +143,8 @@ export function SignInClient() {
         setErrorMessage("Verification could not be finalized. Please try again.");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Code verification failed. Please try again.";
+      const msg =
+        err instanceof Error ? err.message : "Code verification failed. Please try again.";
       setErrorMessage(msg);
     } finally {
       setIsSubmitting(false);
@@ -220,10 +226,7 @@ export function SignInClient() {
             </div>
 
             {/* Identifier Form (Email or Ghana Phone) */}
-            <IdentifierForm
-              isLoading={isAnyLoading}
-              onSubmit={handleIdentifierSubmit}
-            />
+            <IdentifierForm isLoading={isAnyLoading} onSubmit={handleIdentifierSubmit} />
           </AuthStep>
         ) : (
           <AuthStep>

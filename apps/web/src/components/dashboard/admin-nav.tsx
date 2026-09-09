@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
-import { ShieldCheck, Layers, ClipboardCheck, History } from "lucide-react";
+import { ShieldCheck, Layers, ClipboardCheck } from "lucide-react";
 
 export function AdminNav() {
   const pathname = usePathname();

@@ -157,9 +157,7 @@ export function BuyerProfileForm() {
 
         {/* Verified Email Display */}
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-foreground">
-            Verified email address
-          </Label>
+          <Label className="text-xs font-medium text-foreground">Verified email address</Label>
           <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3.5 py-2 text-xs text-foreground">
             <span className="font-mono text-muted-foreground">{verifiedEmail}</span>
             <span className="inline-flex items-center gap-1 font-medium text-brand-green-700 dark:text-brand-green-400">
@@ -206,7 +204,8 @@ export function BuyerProfileForm() {
               className="mt-0.5"
             />
             <span className="text-xs text-muted-foreground leading-relaxed">
-              I authorize AsaseLink to send transactional reservation updates and Cadastral survey confirmations to my email and phone.
+              I authorize AsaseLink to send transactional reservation updates and Cadastral survey
+              confirmations to my email and phone.
             </span>
           </label>
         </div>

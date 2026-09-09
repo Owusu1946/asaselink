@@ -28,7 +28,8 @@ export default function HomePage() {
         </h1>
 
         <p className="mt-4 text-base text-muted-foreground sm:text-lg text-balance max-w-lg mx-auto">
-          A calm, transparent standard for discovering estate plots, verifying ownership documents, and securing title in Ghana.
+          A calm, transparent standard for discovering estate plots, verifying ownership documents,
+          and securing title in Ghana.
         </p>
 
         {/* Action Group */}
@@ -42,7 +43,11 @@ export default function HomePage() {
 
           <Link
             href="/company/apply"
-            className={buttonVariants({ variant: "outline", size: "lg", className: "w-full sm:w-auto font-medium" })}
+            className={buttonVariants({
+              variant: "outline",
+              size: "lg",
+              className: "w-full sm:w-auto font-medium",
+            })}
           >
             List your estate
           </Link>

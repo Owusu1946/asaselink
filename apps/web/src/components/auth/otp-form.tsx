@@ -1,11 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@asaselink/ui/components/input-otp";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@asaselink/ui/components/input-otp";
 import { AuthSubmitButton } from "./auth-submit-button";
 import { Button } from "@asaselink/ui/components/button";
 import { ArrowLeft, RotateCw } from "lucide-react";
@@ -78,9 +74,7 @@ export function OtpForm({
           <span>Change details</span>
         </button>
 
-        <span className="font-mono text-muted-foreground tabular-nums">
-          6-digit code
-        </span>
+        <span className="font-mono text-muted-foreground tabular-nums">6-digit code</span>
       </div>
 
       <div className="rounded-xl border border-border/80 bg-secondary/30 p-3 text-xs text-muted-foreground">
@@ -110,10 +104,7 @@ export function OtpForm({
           </InputOTP>
 
           {error && (
-            <p
-              role="alert"
-              className="text-xs font-medium text-destructive mt-2 text-center"
-            >
+            <p role="alert" className="text-xs font-medium text-destructive mt-2 text-center">
               {error}
             </p>
           )}
@@ -132,7 +123,8 @@ export function OtpForm({
         <div className="flex items-center justify-center text-xs text-muted-foreground pt-2">
           {countdown > 0 ? (
             <span>
-              Resend available in <span className="font-mono font-medium text-foreground">{countdown}s</span>
+              Resend available in{" "}
+              <span className="font-mono font-medium text-foreground">{countdown}s</span>
             </span>
           ) : (
             <Button

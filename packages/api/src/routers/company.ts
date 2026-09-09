@@ -18,11 +18,7 @@ export const companyRouter = {
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
 
     try {
-      const userList = await db
-        .select()
-        .from(users)
-        .where(eq(users.clerkId, clerkId))
-        .limit(1);
+      const userList = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
       const userRecord = userList[0];
       if (!userRecord) return null;
 
@@ -71,11 +67,7 @@ export const companyRouter = {
       const clerkId = context.auth?.userId;
       if (!clerkId) throw new ORPCError("UNAUTHORIZED");
 
-      const userList = await db
-        .select()
-        .from(users)
-        .where(eq(users.clerkId, clerkId))
-        .limit(1);
+      const userList = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
       let userRecord = userList[0];
       if (!userRecord) {
         const inserted = await db.insert(users).values({ clerkId, status: "active" }).returning();

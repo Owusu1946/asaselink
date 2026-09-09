@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { AdminNav } from "@/components/dashboard/admin-nav";
-import { Button, buttonVariants } from "@asaselink/ui/components/button";
+import { Button } from "@asaselink/ui/components/button";
 import { Spinner } from "@asaselink/ui/components/spinner";
 import {
   ArrowLeft,
@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   History,
   Send,
-  Download,
   Check,
   XCircle,
 } from "lucide-react";
@@ -25,7 +24,6 @@ import ApiProvider from "@/components/api-provider";
 
 function CompanyReviewContent() {
   const params = useParams();
-  const router = useRouter();
   const companyId = (params?.companyId as string) || "app-demo-01";
 
   const [reviewData, setReviewData] = React.useState<any>(null);
@@ -146,11 +144,9 @@ function CompanyReviewContent() {
       });
       setSubmitSuccess(`Application status successfully updated to ${decision.replace("_", " ")}.`);
       loadData();
-    } catch (err: any) {
+    } catch {
       // In local dev without db auth session, show optimistic success
-      setSubmitSuccess(
-        `Application status updated to ${decision.replace("_", " ")} (Audited).`,
-      );
+      setSubmitSuccess(`Application status updated to ${decision.replace("_", " ")} (Audited).`);
       if (reviewData?.company) {
         setReviewData({
           ...reviewData,
@@ -214,7 +210,9 @@ function CompanyReviewContent() {
               {company?.legalName}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Registration No: <span className="font-semibold text-foreground">{company?.registrationNumber}</span> &middot; TIN: <span className="font-semibold text-foreground">{company?.tin}</span>
+              Registration No:{" "}
+              <span className="font-semibold text-foreground">{company?.registrationNumber}</span>{" "}
+              &middot; TIN: <span className="font-semibold text-foreground">{company?.tin}</span>
             </p>
           </div>
 
@@ -256,7 +254,9 @@ function CompanyReviewContent() {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Registrar General No.</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{company?.registrationNumber}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {company?.registrationNumber}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Ghana Revenue TIN</dt>
@@ -264,11 +264,15 @@ function CompanyReviewContent() {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Corporate Phone</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{company?.phone || "+233 24 412 3456"}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {company?.phone || "+233 24 412 3456"}
+                  </dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">Registered Office Address</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{company?.address || "Ridge, Accra, Ghana"}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {company?.address || "Ridge, Accra, Ghana"}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -289,7 +293,9 @@ function CompanyReviewContent() {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Corporate Position</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{application?.repRole || "Managing Director"}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {application?.repRole || "Managing Director"}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Official Email</dt>
@@ -297,11 +303,15 @@ function CompanyReviewContent() {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Representative Phone</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{application?.repPhone || "+233 20 555 1234"}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {application?.repPhone || "+233 20 555 1234"}
+                  </dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">National ID (Ghana Card)</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{application?.repIdNumber || "GHA-729104819-2"}</dd>
+                  <dd className="mt-1 font-semibold text-foreground">
+                    {application?.repIdNumber || "GHA-729104819-2"}
+                  </dd>
                 </div>
               </dl>
             </div>
@@ -331,7 +341,8 @@ function CompanyReviewContent() {
                       <div>
                         <div className="font-semibold text-foreground">{doc.fileName}</div>
                         <div className="text-[11px] text-muted-foreground capitalize">
-                          {doc.type.replace("_", " ")} &middot; {(doc.fileSize / 1024 / 1024).toFixed(1)} MB
+                          {doc.type.replace("_", " ")} &middot;{" "}
+                          {(doc.fileSize / 1024 / 1024).toFixed(1)} MB
                         </div>
                       </div>
                     </div>
@@ -411,9 +422,7 @@ function CompanyReviewContent() {
               <form onSubmit={handleDecisionSubmit} className="space-y-5">
                 {/* Decision Selector */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground">
-                    Action Decision
-                  </label>
+                  <label className="text-xs font-semibold text-foreground">Action Decision</label>
                   <div className="grid grid-cols-1 gap-2">
                     <button
                       type="button"
@@ -428,7 +437,9 @@ function CompanyReviewContent() {
                         <CheckCircle2 className="size-4 text-brand-green-700 dark:text-brand-green-400" />
                         <span>Approve Corporate Partnership</span>
                       </div>
-                      {decision === "approved" && <Check className="size-3.5 text-brand-green-900 dark:text-brand-green-300" />}
+                      {decision === "approved" && (
+                        <Check className="size-3.5 text-brand-green-900 dark:text-brand-green-300" />
+                      )}
                     </button>
 
                     <button
@@ -444,7 +455,9 @@ function CompanyReviewContent() {
                         <AlertCircle className="size-4 text-orange-600" />
                         <span>Request Document Changes</span>
                       </div>
-                      {decision === "changes_requested" && <Check className="size-3.5 text-orange-600" />}
+                      {decision === "changes_requested" && (
+                        <Check className="size-3.5 text-orange-600" />
+                      )}
                     </button>
 
                     <button
@@ -559,12 +572,7 @@ function CompanyReviewContent() {
                     Document Preview
                   </h3>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPreviewDoc(null)}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewDoc(null)}>
                   Close
                 </Button>
               </div>

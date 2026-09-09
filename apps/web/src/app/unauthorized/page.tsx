@@ -41,7 +41,8 @@ export default function UnauthorizedPage() {
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
               You do not currently have the permissions required to view this workspace or resource.
-              This area is restricted to verified real estate developers or AsaseLink operations staff.
+              This area is restricted to verified real estate developers or AsaseLink operations
+              staff.
             </p>
           </div>
 
@@ -60,7 +61,8 @@ export default function UnauthorizedPage() {
               href="/account"
               className={buttonVariants({
                 variant: "default",
-                className: "w-full sm:w-auto bg-brand-green-900 text-white hover:bg-brand-green-800 gap-1.5",
+                className:
+                  "w-full sm:w-auto bg-brand-green-900 text-white hover:bg-brand-green-800 gap-1.5",
               })}
             >
               <Compass className="size-4" />
@@ -93,7 +95,8 @@ export default function UnauthorizedPage() {
 
       {/* Footer */}
       <footer className="mx-auto w-full max-w-xl text-center text-xs text-muted-foreground">
-        Need assistance? Contact support at <span className="font-medium text-foreground">compliance@asaselink.gh</span>
+        Need assistance? Contact support at{" "}
+        <span className="font-medium text-foreground">compliance@asaselink.gh</span>
       </footer>
     </div>
   );

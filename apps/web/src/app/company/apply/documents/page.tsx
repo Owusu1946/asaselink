@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { CompanyProgressHeader } from "@/components/company/company-progress-header";
 import { Button } from "@asaselink/ui/components/button";
 import { Spinner } from "@asaselink/ui/components/spinner";
-import { AlertCircle, ArrowLeft, ArrowRight, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  FileText,
+  UploadCloud,
+  CheckCircle2,
+} from "lucide-react";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
 
@@ -135,7 +142,8 @@ function DocumentsContent() {
               Verification documents
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Upload official records verifying your legal existence and authority to transact land in Ghana.
+              Upload official records verifying your legal existence and authority to transact land
+              in Ghana.
             </p>
           </div>
 
@@ -165,9 +173,7 @@ function DocumentsContent() {
                         {doc.label}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-6">
-                      {doc.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground pl-6">{doc.description}</p>
                     {isUploaded && (
                       <div className="flex items-center gap-1.5 pl-6 pt-1 text-xs font-medium text-brand-green-700 dark:text-brand-green-400">
                         <CheckCircle2 className="size-3.5" />

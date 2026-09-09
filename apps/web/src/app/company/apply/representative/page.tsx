@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CompanyProgressHeader } from "@/components/company/company-progress-header";
 import { Button } from "@asaselink/ui/components/button";
@@ -104,14 +103,16 @@ function RepresentativeContent() {
               Company representative
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Identify the primary executive officer or legal counsel accountable for land listings and customer declarations.
+              Identify the primary executive officer or legal counsel accountable for land listings
+              and customer declarations.
             </p>
           </div>
 
           <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
             <UserCheck className="size-4 text-brand-green-700 dark:text-brand-green-400 shrink-0 mt-0.5" />
             <p>
-              This individual will be authorized to execute estate plot declarations and sign digital reservation certificates.
+              This individual will be authorized to execute estate plot declarations and sign
+              digital reservation certificates.
             </p>
           </div>
 

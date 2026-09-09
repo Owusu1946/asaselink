@@ -7,13 +7,10 @@ import { buttonVariants } from "@asaselink/ui/components/button";
 import {
   ShieldCheck,
   Search,
-  Filter,
   ArrowRight,
   Clock,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Building,
   RefreshCw,
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
@@ -146,7 +143,8 @@ function AdminQueueContent() {
               Corporate Verification Queue
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Review and audit Ghanaian real estate companies applying to publish verified master plans.
+              Review and audit Ghanaian real estate companies applying to publish verified master
+              plans.
             </p>
           </div>
 
@@ -182,7 +180,9 @@ function AdminQueueContent() {
             <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
               {changesCount}
             </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Awaiting applicant resubmission</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Awaiting applicant resubmission
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
@@ -245,7 +245,9 @@ function AdminQueueContent() {
         <div className="space-y-3">
           {filteredQueue.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border p-12 text-center">
-              <p className="text-sm font-medium text-foreground">No applications match your filter</p>
+              <p className="text-sm font-medium text-foreground">
+                No applications match your filter
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Try searching for a different company name or clearing the status filter.
               </p>
@@ -296,9 +298,13 @@ function AdminQueueContent() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>Reg: <strong className="text-foreground">{item.registrationNumber}</strong></span>
+                      <span>
+                        Reg: <strong className="text-foreground">{item.registrationNumber}</strong>
+                      </span>
                       <span>&middot;</span>
-                      <span>Rep: <strong className="text-foreground">{item.representativeName}</strong></span>
+                      <span>
+                        Rep: <strong className="text-foreground">{item.representativeName}</strong>
+                      </span>
                       <span>&middot;</span>
                       <span>Submitted: {formattedDate}</span>
                     </div>

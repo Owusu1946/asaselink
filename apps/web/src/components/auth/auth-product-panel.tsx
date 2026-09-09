@@ -19,7 +19,10 @@ export function AuthProductPanel() {
           href="/"
           className="inline-flex items-center gap-2.5 text-xl font-semibold tracking-tight text-brand-white hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-500 rounded-lg p-1 -m-1"
         >
-          <span className="h-3.5 w-3.5 rounded-full bg-brand-gold-500 ring-2 ring-brand-green-800" aria-hidden="true" />
+          <span
+            className="h-3.5 w-3.5 rounded-full bg-brand-gold-500 ring-2 ring-brand-green-800"
+            aria-hidden="true"
+          />
           <span>
             Asase<span className="text-brand-gold-300">Link</span>
           </span>
@@ -38,7 +41,8 @@ export function AuthProductPanel() {
         </h2>
 
         <p className="mt-3 text-sm text-brand-green-100/80 leading-relaxed">
-          Explore estate plots with coordinate validation, track title verification status, and secure reservation rights with clarity.
+          Explore estate plots with coordinate validation, track title verification status, and
+          secure reservation rights with clarity.
         </p>
 
         <div className="mt-8 flex justify-center">

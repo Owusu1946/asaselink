@@ -10,7 +10,7 @@ export const companies = pgTable("companies", {
   phone: varchar("phone", { length: 64 }),
   website: varchar("website", { length: 256 }),
   address: text("address"),
-  status: varchar("status", { length: 32 }).notNull().default("pending"), 
+  status: varchar("status", { length: 32 }).notNull().default("pending"),
   // pending | under_review | changes_requested | approved | rejected | suspended
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })

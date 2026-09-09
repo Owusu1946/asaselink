@@ -1,3 +1,4 @@
+import * as React from "react";
 import Link from "next/link";
 import { ModeToggle } from "@/components/mode-toggle";
 import { BuyerProfileForm } from "@/components/onboarding/buyer-profile-form";
@@ -36,7 +37,15 @@ export default function BuyerProfileOnboardingPage() {
               </p>
             </div>
 
-            <BuyerProfileForm />
+            <React.Suspense
+              fallback={
+                <div className="flex h-64 items-center justify-center">
+                  <div className="h-6 w-6 rounded-full border-2 border-brand-green-900 border-t-transparent animate-spin dark:border-brand-green-400" />
+                </div>
+              }
+            >
+              <BuyerProfileForm />
+            </React.Suspense>
           </div>
         </div>
 

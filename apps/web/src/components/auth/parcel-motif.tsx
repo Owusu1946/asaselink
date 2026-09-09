@@ -2,10 +2,7 @@ import * as React from "react";
 
 export function ParcelMotif({ className }: { className?: string }) {
   return (
-    <div
-      className={className}
-      aria-hidden="true"
-    >
+    <div className={className} aria-hidden="true">
       <svg
         viewBox="0 0 400 320"
         fill="none"
@@ -62,14 +59,7 @@ export function ParcelMotif({ className }: { className?: string }) {
           fill="rgba(199, 154, 36, 0.22)"
         />
         <circle cx="180" cy="192" r="3.5" fill="#C79A24" />
-        <rect
-          x="150"
-          y="202"
-          width="62"
-          height="16"
-          rx="8"
-          fill="#C79A24"
-        />
+        <rect x="150" y="202" width="62" height="16" rx="8" fill="#C79A24" />
         <text
           x="181"
           y="213"

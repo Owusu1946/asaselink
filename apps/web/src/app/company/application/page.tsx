@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button, buttonVariants } from "@asaselink/ui/components/button";
-import { Spinner } from "@asaselink/ui/components/spinner";
 import {
   Clock,
   CheckCircle2,
@@ -133,39 +132,50 @@ function StatusContent() {
                 </span>
                 <h3 className="text-sm font-semibold text-foreground">Application Submitted</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Corporate details, representative national identification, and declarations received.
+                  Corporate details, representative national identification, and declarations
+                  received.
                 </p>
               </li>
 
               {/* Step 2 */}
               <li className="ml-6">
-                <span className={`absolute -left-3 flex size-6 items-center justify-center rounded-full ring-4 ring-background ${
-                  isApproved
-                    ? "bg-brand-green-900 text-brand-white dark:bg-brand-green-400 dark:text-brand-green-950"
-                    : isChangesRequested
-                    ? "bg-brand-gold-500 text-brand-white"
-                    : "bg-brand-gold-500 text-brand-white animate-pulse"
-                }`}>
+                <span
+                  className={`absolute -left-3 flex size-6 items-center justify-center rounded-full ring-4 ring-background ${
+                    isApproved
+                      ? "bg-brand-green-900 text-brand-white dark:bg-brand-green-400 dark:text-brand-green-950"
+                      : isChangesRequested
+                        ? "bg-brand-gold-500 text-brand-white"
+                        : "bg-brand-gold-500 text-brand-white animate-pulse"
+                  }`}
+                >
                   <FileSearch className="size-3.5" />
                 </span>
-                <h3 className="text-sm font-semibold text-foreground">RGD &amp; Regulatory Verification</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  RGD &amp; Regulatory Verification
+                </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Administrative team is validating Registrar General incorporation records and tax identification.
+                  Administrative team is validating Registrar General incorporation records and tax
+                  identification.
                 </p>
               </li>
 
               {/* Step 3 */}
               <li className="ml-6">
-                <span className={`absolute -left-3 flex size-6 items-center justify-center rounded-full ring-4 ring-background ${
-                  isApproved
-                    ? "bg-brand-green-900 text-brand-white dark:bg-brand-green-400 dark:text-brand-green-950"
-                    : "border border-border bg-secondary text-muted-foreground"
-                }`}>
+                <span
+                  className={`absolute -left-3 flex size-6 items-center justify-center rounded-full ring-4 ring-background ${
+                    isApproved
+                      ? "bg-brand-green-900 text-brand-white dark:bg-brand-green-400 dark:text-brand-green-950"
+                      : "border border-border bg-secondary text-muted-foreground"
+                  }`}
+                >
                   <Building className="size-3.5" />
                 </span>
-                <h3 className="text-sm font-semibold text-foreground">Workspace &amp; Estate Activation</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Workspace &amp; Estate Activation
+                </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Upon administrative approval, your team workspace will unlock plot boundary drawing and reservation management.
+                  Upon administrative approval, your team workspace will unlock plot boundary
+                  drawing and reservation management.
                 </p>
               </li>
             </ol>
@@ -194,7 +204,8 @@ function StatusContent() {
                 <div className="rounded-xl border border-warning/40 bg-accent/20 p-3.5 text-xs text-accent-foreground">
                   <p className="font-semibold">Review note from administrator:</p>
                   <p className="mt-1">
-                    Please provide an updated copy of the Certificate to Commence Business or contact compliance.
+                    Please provide an updated copy of the Certificate to Commence Business or
+                    contact compliance.
                   </p>
                 </div>
                 <Link
@@ -211,10 +222,7 @@ function StatusContent() {
             ) : (
               <div className="rounded-xl border border-border bg-secondary/30 p-4 text-xs text-muted-foreground flex items-center justify-between">
                 <span>Estimated verification time: 24 &ndash; 48 hours</span>
-                <Link
-                  href="/account"
-                  className="font-medium text-foreground hover:underline"
-                >
+                <Link href="/account" className="font-medium text-foreground hover:underline">
                   Return to account &rarr;
                 </Link>
               </div>

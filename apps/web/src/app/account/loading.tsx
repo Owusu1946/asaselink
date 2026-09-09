@@ -1,5 +1,3 @@
-import { Skeleton } from "@asaselink/ui/components/skeleton";
-
 export default function BuyerAccountLoading() {
   return (
     <div className="min-h-svh bg-background p-6 sm:p-10 space-y-6">

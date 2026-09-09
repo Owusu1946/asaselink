@@ -6,18 +6,7 @@ import { useParams } from "next/navigation";
 import { CompanyWorkspaceNav } from "@/components/dashboard/company-workspace-nav";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Button, buttonVariants } from "@asaselink/ui/components/button";
-import {
-  Building2,
-  ShieldCheck,
-  Plus,
-  Compass,
-  FileCheck2,
-  Users,
-  Calendar,
-  AlertCircle,
-  ExternalLink,
-  MapPin,
-} from "lucide-react";
+import { Building2, ShieldCheck, Plus, Compass, FileCheck2, Users, MapPin } from "lucide-react";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
 
@@ -26,7 +15,7 @@ function CompanyOverviewContent() {
   const companyId = (params?.companyId as string) || "current";
 
   const [company, setCompany] = React.useState<any>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [_isLoading, setIsLoading] = React.useState(true);
   const [showEstateNotice, setShowEstateNotice] = React.useState(false);
 
   React.useEffect(() => {
@@ -119,8 +108,9 @@ function CompanyOverviewContent() {
                   Estate Master Planning Unlocks in Phase 2
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground max-w-xl leading-relaxed">
-                  Your corporate developer account is verified! Interactive cadastral boundary plotting,
-                  master plan shapefile imports, and plot inventory management will launch in Phase 2 (GIS & Estates).
+                  Your corporate developer account is verified! Interactive cadastral boundary
+                  plotting, master plan shapefile imports, and plot inventory management will launch
+                  in Phase 2 (GIS & Estates).
                 </p>
               </div>
             </div>
@@ -147,13 +137,17 @@ function CompanyOverviewContent() {
           <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
             <div className="text-xs font-medium text-muted-foreground">Managed Plots</div>
             <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">0</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">0 reserved &middot; 0 available</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              0 reserved &middot; 0 available
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
             <div className="text-xs font-medium text-muted-foreground">Active Inquiries</div>
             <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">0</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Buyer requests will appear here</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Buyer requests will appear here
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-xs">
@@ -161,7 +155,9 @@ function CompanyOverviewContent() {
             <div className="mt-2 text-2xl font-bold tracking-tight text-brand-green-900 dark:text-brand-green-400">
               GHS 0.00
             </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">Escrow settlement via Paystack</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              Escrow settlement via Paystack
+            </div>
           </div>
         </div>
 
@@ -214,9 +210,7 @@ function CompanyOverviewContent() {
                 <div className="p-2 rounded-lg bg-brand-green-50 text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300">
                   <ShieldCheck className="size-4" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Corporate Verification
-                </h3>
+                <h3 className="text-sm font-semibold text-foreground">Corporate Verification</h3>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-green-100 dark:bg-brand-green-950 px-2.5 py-0.5 text-xs font-medium text-brand-green-900 dark:text-brand-green-300">
                 Active Partner
@@ -247,9 +241,7 @@ function CompanyOverviewContent() {
 
               <div className="rounded-lg bg-muted/40 p-3">
                 <dt className="text-muted-foreground">Escrow Account</dt>
-                <dd className="mt-1 font-semibold text-foreground">
-                  Tier 1 Merchant Active
-                </dd>
+                <dd className="mt-1 font-semibold text-foreground">Tier 1 Merchant Active</dd>
               </div>
             </dl>
           </div>
@@ -261,9 +253,7 @@ function CompanyOverviewContent() {
                 <div className="p-2 rounded-lg bg-brand-gold-50 text-brand-gold-700 dark:bg-brand-gold-950 dark:text-brand-gold-300">
                   <Users className="size-4" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Team & Representatives
-                </h3>
+                <h3 className="text-sm font-semibold text-foreground">Team & Representatives</h3>
               </div>
               <span className="text-xs text-muted-foreground">1 Authorized User</span>
             </div>
@@ -290,7 +280,8 @@ function CompanyOverviewContent() {
 
               <div className="rounded-xl border border-dashed border-border p-4 text-center">
                 <p className="text-xs text-muted-foreground">
-                  Need to invite surveyors or estate managers? Multi-seat team invites will be enabled in Phase 2.
+                  Need to invite surveyors or estate managers? Multi-seat team invites will be
+                  enabled in Phase 2.
                 </p>
               </div>
             </div>

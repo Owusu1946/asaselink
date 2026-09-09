@@ -38,9 +38,7 @@ export function CompanyWorkspaceNav({
         {/* Workspace Pill */}
         <div className="hidden lg:flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-2.5 py-1 text-xs">
           <Building2 className="size-3.5 text-muted-foreground" />
-          <span className="max-w-[160px] truncate font-medium text-foreground">
-            {companyName}
-          </span>
+          <span className="max-w-[160px] truncate font-medium text-foreground">{companyName}</span>
           {isVerified ? (
             <span className="inline-flex items-center gap-1 rounded bg-brand-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300">
               <ShieldCheck className="size-2.5" />

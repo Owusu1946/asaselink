@@ -24,7 +24,7 @@
     "db:migrate": "turbo run db:migrate -F @asaselink/db --",
     "deploy": "turbo run deploy -F @asaselink/infra --",
     "destroy": "turbo run destroy -F @asaselink/infra --",
-    "check": "oxlint && oxfmt --write"
+    "check": "oxlint && oxfmt --write apps packages"
   },
   "dependencies": {
     "@asaselink/env": "workspace:*",

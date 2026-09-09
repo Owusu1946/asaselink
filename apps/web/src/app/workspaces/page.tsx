@@ -4,12 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useUser, UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
-import { buttonVariants } from "@asaselink/ui/components/button";
 import {
   Compass,
   Building2,
   ShieldCheck,
-  ArrowRight,
   Plus,
   CheckCircle2,
   Clock,
@@ -23,7 +21,7 @@ function WorkspacesContent() {
   const { user, isLoaded } = useUser();
   const [companyData, setCompanyData] = React.useState<any>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [_isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (!isLoaded) return;
@@ -119,7 +117,8 @@ function WorkspacesContent() {
                   Buyer Account
                 </h2>
                 <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Browse verified Ghanaian land parcels, manage survey documentation, and view your active plot reservations.
+                  Browse verified Ghanaian land parcels, manage survey documentation, and view your
+                  active plot reservations.
                 </p>
               </div>
             </div>
@@ -163,7 +162,8 @@ function WorkspacesContent() {
                     {companyData.legalName || "Estate Developer"}
                   </h2>
                   <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Corporate developer workspace for publishing master plans, managing plot inventories, and buyer reservations.
+                    Corporate developer workspace for publishing master plans, managing plot
+                    inventories, and buyer reservations.
                   </p>
                 </div>
               </div>
@@ -197,7 +197,8 @@ function WorkspacesContent() {
                     List Your Real Estate Company
                   </h2>
                   <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Are you a licensed Ghanaian real estate developer or surveyor? Register your company to list verified master plans.
+                    Are you a licensed Ghanaian real estate developer or surveyor? Register your
+                    company to list verified master plans.
                   </p>
                 </div>
               </div>
@@ -228,11 +229,12 @@ function WorkspacesContent() {
                       Compliance & Admin Operations
                     </h2>
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-gold-50 dark:bg-brand-gold-950/80 px-2 py-0.5 text-[10px] font-semibold text-brand-gold-700 dark:text-brand-gold-300">
-                      Staff Portal
+                      {isAdmin ? "Staff Portal" : "Admin Preview"}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Review and audit corporate applications, inspect uploaded regulatory filings, and execute governance actions.
+                    Review and audit corporate applications, inspect uploaded regulatory filings,
+                    and execute governance actions.
                   </p>
                 </div>
               </div>

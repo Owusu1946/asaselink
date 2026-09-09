@@ -108,7 +108,8 @@ function DetailsContent() {
               Company information
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Enter your registered corporate details exactly as recorded at Registrar General&apos;s Department.
+              Enter your registered corporate details exactly as recorded at Registrar
+              General&apos;s Department.
             </p>
           </div>
 

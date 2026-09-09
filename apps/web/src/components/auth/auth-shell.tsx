@@ -28,7 +28,15 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
 
         {/* Center: Auth form container strictly bounded to 400-440px */}
         <div className="mx-auto w-full max-w-[420px] my-auto py-4">
-          {children}
+          <React.Suspense
+            fallback={
+              <div className="flex h-64 items-center justify-center rounded-2xl border border-border bg-card">
+                <div className="h-6 w-6 rounded-full border-2 border-brand-green-900 border-t-transparent animate-spin dark:border-brand-green-400" />
+              </div>
+            }
+          >
+            {children}
+          </React.Suspense>
         </div>
 
         {/* Footer: Legal terms & privacy links */}

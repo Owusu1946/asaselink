@@ -15,7 +15,8 @@ function ContinuationContent() {
   const searchParams = useSearchParams();
 
   const intent = searchParams?.get("intent") || undefined;
-  const returnUrl = searchParams?.get("return_url") || searchParams?.get("redirect_url") || undefined;
+  const returnUrl =
+    searchParams?.get("return_url") || searchParams?.get("redirect_url") || undefined;
 
   const [statusMessage, setStatusMessage] = React.useState("Checking authentication...");
   const [error, setError] = React.useState<string | null>(null);
@@ -124,7 +125,18 @@ function ContinuationContent() {
 export default function AuthContinuePage() {
   return (
     <ApiProvider clerkEnabled>
-      <ContinuationContent />
+      <React.Suspense
+        fallback={
+          <main className="flex min-h-svh flex-col items-center justify-center bg-background p-6 text-foreground">
+            <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 text-center shadow-xs">
+              <div className="mx-auto h-7 w-7 rounded-full border-2 border-brand-green-900 border-t-transparent animate-spin dark:border-brand-green-400" />
+              <p className="mt-4 text-sm font-medium text-foreground">Loading session...</p>
+            </div>
+          </main>
+        }
+      >
+        <ContinuationContent />
+      </React.Suspense>
     </ApiProvider>
   );
 }

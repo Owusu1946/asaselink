@@ -92,11 +92,7 @@ export function IdentifierForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       {/* Method Switcher */}
-      <AuthMethodSwitch
-        activeMethod={method}
-        onChange={handleMethodChange}
-        disabled={isLoading}
-      />
+      <AuthMethodSwitch activeMethod={method} onChange={handleMethodChange} disabled={isLoading} />
 
       {method === "email" ? (
         <div className="space-y-1.5">
@@ -164,11 +160,7 @@ export function IdentifierForm({
         </div>
       )}
 
-      <AuthSubmitButton
-        isLoading={isLoading}
-        loadingText="Sending code..."
-        className="mt-2"
-      >
+      <AuthSubmitButton isLoading={isLoading} loadingText="Sending code..." className="mt-2">
         Send verification code
       </AuthSubmitButton>
     </form>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@asaselink/ui/components/button";
+import { ShieldCheck, CheckCircle2, ArrowRight } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
-import { ShieldCheck, FileText, CheckCircle2, ArrowRight } from "lucide-react";
 
 export default function CompanyApplyStartPage() {
   return (
@@ -33,7 +33,8 @@ export default function CompanyApplyStartPage() {
           </h1>
 
           <p className="mt-3 text-sm text-muted-foreground sm:text-base leading-relaxed">
-            AsaseLink provides verified land companies and customary stools with coordinate-backed plot inventory, transparent reservation agreements, and direct buyer trust.
+            AsaseLink provides verified land companies and customary stools with coordinate-backed
+            plot inventory, transparent reservation agreements, and direct buyer trust.
           </p>
 
           <div className="mt-8 space-y-3">
@@ -47,7 +48,8 @@ export default function CompanyApplyStartPage() {
                 <div>
                   <span className="font-semibold text-foreground">Company Registration</span>
                   <p className="text-muted-foreground mt-0.5">
-                    Registrar General&apos;s Department (RGD) Certificate of Incorporation and Commencement.
+                    Registrar General&apos;s Department (RGD) Certificate of Incorporation and
+                    Commencement.
                   </p>
                 </div>
               </div>
@@ -57,7 +59,8 @@ export default function CompanyApplyStartPage() {
                 <div>
                   <span className="font-semibold text-foreground">Representative Ghana Card</span>
                   <p className="text-muted-foreground mt-0.5">
-                    National Identification card of the designated director, secretary, or legal counsel.
+                    National Identification card of the designated director, secretary, or legal
+                    counsel.
                   </p>
                 </div>
               </div>
@@ -102,7 +105,8 @@ export default function CompanyApplyStartPage() {
 
       {/* Footer */}
       <footer className="mx-auto w-full max-w-2xl text-center text-xs text-muted-foreground pt-4">
-        AsaseLink Platform &middot; Verification decisions are subject to administrative legal review.
+        AsaseLink Platform &middot; Verification decisions are subject to administrative legal
+        review.
       </footer>
     </main>
   );

@@ -9,13 +9,7 @@ interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-  className,
-}: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -28,9 +22,7 @@ export function EmptyState({
           {icon}
         </div>
       )}
-      <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-        {title}
-      </h3>
+      <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{title}</h3>
       <p className="mt-1.5 max-w-sm text-xs text-muted-foreground sm:text-sm text-balance">
         {description}
       </p>

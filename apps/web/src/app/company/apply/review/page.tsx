@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { CompanyProgressHeader } from "@/components/company/company-progress-header";
 import { Button } from "@asaselink/ui/components/button";
 import { Checkbox } from "@asaselink/ui/components/checkbox";
-import { Spinner } from "@asaselink/ui/components/spinner";
-import { AlertCircle, ArrowLeft, CheckCircle2, ShieldCheck, Send } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Send } from "lucide-react";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { Spinner } from "@asaselink/ui/components/spinner";
 
 function ReviewContent() {
   const router = useRouter();
@@ -91,7 +91,8 @@ function ReviewContent() {
               Review and submission
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Verify your submitted corporate information before sending your file to the administrative verification desk.
+              Verify your submitted corporate information before sending your file to the
+              administrative verification desk.
             </p>
           </div>
 
@@ -127,10 +128,22 @@ function ReviewContent() {
                 </div>
                 <div className="text-sm font-semibold text-foreground">{company.legalName}</div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
-                  <div>RGD Reg: <span className="font-mono text-foreground">{company.registrationNumber}</span></div>
-                  <div>Email: <span className="text-foreground">{company.email}</span></div>
-                  <div>Phone: <span className="text-foreground">{company.phone}</span></div>
-                  <div>TIN: <span className="font-mono text-foreground">{company.taxNumber || "Provided"}</span></div>
+                  <div>
+                    RGD Reg:{" "}
+                    <span className="font-mono text-foreground">{company.registrationNumber}</span>
+                  </div>
+                  <div>
+                    Email: <span className="text-foreground">{company.email}</span>
+                  </div>
+                  <div>
+                    Phone: <span className="text-foreground">{company.phone}</span>
+                  </div>
+                  <div>
+                    TIN:{" "}
+                    <span className="font-mono text-foreground">
+                      {company.taxNumber || "Provided"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -150,10 +163,18 @@ function ReviewContent() {
                 </div>
                 <div className="text-sm font-semibold text-foreground">{app.repFullName}</div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
-                  <div>Capacity: <span className="text-foreground">{app.repRole}</span></div>
-                  <div>ID Number: <span className="font-mono text-foreground">{app.repIdNumber}</span></div>
-                  <div>Email: <span className="text-foreground">{app.repEmail}</span></div>
-                  <div>Phone: <span className="text-foreground">{app.repPhone}</span></div>
+                  <div>
+                    Capacity: <span className="text-foreground">{app.repRole}</span>
+                  </div>
+                  <div>
+                    ID Number: <span className="font-mono text-foreground">{app.repIdNumber}</span>
+                  </div>
+                  <div>
+                    Email: <span className="text-foreground">{app.repEmail}</span>
+                  </div>
+                  <div>
+                    Phone: <span className="text-foreground">{app.repPhone}</span>
+                  </div>
                 </div>
               </div>
 
@@ -197,7 +218,10 @@ function ReviewContent() {
                       Statutory declaration of title and authority
                     </span>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      I solemnly declare that all statements made herein and documents provided are authentic, true, and correct under the Statutory Declarations Act of Ghana. I confirm that our company holds lawful authority to represent and transact the estate lands we propose to list on AsaseLink.
+                      I solemnly declare that all statements made herein and documents provided are
+                      authentic, true, and correct under the Statutory Declarations Act of Ghana. I
+                      confirm that our company holds lawful authority to represent and transact the
+                      estate lands we propose to list on AsaseLink.
                     </p>
                   </div>
                 </label>

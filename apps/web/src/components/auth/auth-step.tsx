@@ -6,11 +6,7 @@ interface AuthStepProps extends React.ComponentProps<"div"> {
   direction?: "forward" | "backward";
 }
 
-export function AuthStep({
-  children,
-  className,
-  ...props
-}: AuthStepProps) {
+export function AuthStep({ children, className, ...props }: AuthStepProps) {
   return (
     <div
       className={cn(
