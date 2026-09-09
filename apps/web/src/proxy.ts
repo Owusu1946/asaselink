@@ -2,7 +2,10 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export default process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  ? clerkMiddleware()
+  ? clerkMiddleware(async () => {}, {
+      signInUrl: "/sign-in",
+      signUpUrl: "/sign-up",
+    })
   : () => NextResponse.next();
 
 export const config = {

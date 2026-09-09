@@ -176,6 +176,8 @@ export function SignInClient() {
 
   const isAnyLoading = isSubmitting || !!loadingSocial || fetchStatus === "fetching";
 
+  const isSignedUp = searchParams?.get("signed_up") === "true";
+
   return (
     <AuthFormPanel
       mode="sign-in"
@@ -187,6 +189,15 @@ export function SignInClient() {
       }
     >
       <div className="space-y-5">
+        {isSignedUp && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-brand-green-300 bg-brand-green-50/90 p-3 text-xs font-medium text-brand-green-900 dark:border-brand-green-800 dark:bg-brand-green-950/60 dark:text-brand-green-300">
+            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-brand-green-700 text-white dark:bg-brand-green-500">
+              ✓
+            </span>
+            <span>Account created successfully! Please sign in below to continue.</span>
+          </div>
+        )}
+
         <AuthErrorSummary error={errorMessage || errors?.global?.[0]?.message} />
 
         {step === "identifier" ? (

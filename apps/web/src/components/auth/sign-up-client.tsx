@@ -121,22 +121,18 @@ export function SignUpClient() {
     }
   };
 
-  // Finalize sign up session
+  // Finalize sign up session and lead directly to the login page
   const finalizeSignUp = async () => {
     if (!signUp) return;
-    await signUp.finalize({
-      navigate: async ({ session, decorateUrl }) => {
-        const destination = session.currentTask
-          ? `/sign-up/tasks/${session.currentTask.key}`
-          : finalRedirectUrl;
-        const targetUrl = decorateUrl(destination);
-        if (targetUrl.startsWith("http")) {
-          window.location.href = targetUrl;
-        } else {
-          router.push(targetUrl);
-        }
-      },
-    });
+    try {
+      await signUp.finalize({
+        navigate: async () => {
+          router.push("/sign-in?signed_up=true");
+        },
+      });
+    } catch {
+      router.push("/sign-in?signed_up=true");
+    }
   };
 
   // Verify OTP code

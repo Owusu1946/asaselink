@@ -27,7 +27,12 @@ export default function RootLayout({
     <html lang="en" className={geistSans.variable} suppressHydrationWarning>
       <body>
         {env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
-          <ClerkProvider>
+          <ClerkProvider
+            signInUrl="/sign-in"
+            signUpUrl="/sign-up"
+            signInFallbackRedirectUrl="/auth/continue"
+            signUpFallbackRedirectUrl="/auth/continue"
+          >
             <Providers>{children}</Providers>
           </ClerkProvider>
         ) : (
