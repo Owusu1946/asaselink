@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthFormPanel } from "./auth-form-panel";
 import { AuthStep } from "./auth-step";
@@ -14,6 +14,7 @@ import { Separator } from "@asaselink/ui/components/separator";
 
 export function SignUpClient() {
   const { signUp, errors, fetchStatus } = useSignUp();
+  const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -27,6 +28,13 @@ export function SignUpClient() {
     .join("&");
 
   const finalRedirectUrl = `/auth/continue${continuationQuery ? `?${continuationQuery}` : ""}`;
+
+  // If already signed in, immediately forward to continuation destination
+  React.useEffect(() => {
+    if (isAuthLoaded && isSignedIn) {
+      router.replace(finalRedirectUrl);
+    }
+  }, [isAuthLoaded, isSignedIn, finalRedirectUrl, router]);
 
   const [step, setStep] = React.useState<"identifier" | "otp">("identifier");
   const [activeIdentifier, setActiveIdentifier] = React.useState("");
@@ -131,9 +139,10 @@ export function SignUpClient() {
     try {
       await signUp.finalize({
         navigate: async ({ session, decorateUrl }) => {
-          const destination = session.currentTask
-            ? `/sign-up/tasks/${session.currentTask.key}`
-            : finalRedirectUrl;
+          const destination =
+            session.currentTask && session.currentTask.key !== "choose-organization"
+              ? `/sign-up/tasks/${session.currentTask.key}`
+              : finalRedirectUrl;
           const targetUrl = decorateUrl(destination);
           if (targetUrl.startsWith("http")) {
             window.location.href = targetUrl;

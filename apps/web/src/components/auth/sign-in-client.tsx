@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthFormPanel } from "./auth-form-panel";
 import { AuthStep } from "./auth-step";
@@ -13,10 +13,18 @@ import { Separator } from "@asaselink/ui/components/separator";
 
 export function SignInClient() {
   const { signIn, errors, fetchStatus } = useSignIn();
+  const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const redirectUrl = searchParams?.get("redirect_url") || "/auth/continue";
+
+  // If already signed in, immediately forward to continuation destination
+  React.useEffect(() => {
+    if (isAuthLoaded && isSignedIn) {
+      router.replace(redirectUrl);
+    }
+  }, [isAuthLoaded, isSignedIn, redirectUrl, router]);
 
   const [step, setStep] = React.useState<"identifier" | "otp">("identifier");
   const [activeIdentifier, setActiveIdentifier] = React.useState("");
@@ -107,9 +115,10 @@ export function SignInClient() {
     if (!signIn) return;
     await signIn.finalize({
       navigate: async ({ session, decorateUrl }) => {
-        const destination = session.currentTask
-          ? `/sign-in/tasks/${session.currentTask.key}`
-          : redirectUrl;
+        const destination =
+          session.currentTask && session.currentTask.key !== "choose-organization"
+            ? `/sign-in/tasks/${session.currentTask.key}`
+            : redirectUrl;
         const targetUrl = decorateUrl(destination);
         if (targetUrl.startsWith("http")) {
           window.location.href = targetUrl;
