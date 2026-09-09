@@ -234,8 +234,8 @@ export function AccountSidebar({
           </Link>
         </div>
 
-        {/* Scrollable Middle: Navigation & Recent Explorations */}
-        <div className="flex-1 overflow-y-auto px-2.5 py-1 space-y-4 text-xs">
+        {/* Scrollable Middle: Navigation & Recent Explorations (No visible scrollbar) */}
+        <div className="flex-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2.5 py-1 space-y-3 text-xs">
           {/* Main Navigation Links */}
           <nav aria-label="Account core links" className="space-y-0.5">
             {navLinks.map((item) => {

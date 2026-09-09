@@ -163,7 +163,7 @@ function CompanyOverviewContent() {
 
             <div className="inline-flex items-center gap-2 rounded-xl border border-brand-green-300 bg-brand-green-50 px-3.5 py-1.5 text-xs font-medium text-brand-green-900 dark:border-brand-green-800 dark:bg-brand-green-950/60 dark:text-brand-green-300 shrink-0">
               <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-              <span>{isApproved ? "Approved Partner &middot; Active" : "Under Review"}</span>
+              <span>{isApproved ? "Approved Partner · Active" : "Under Review"}</span>
             </div>
           </div>
 
@@ -216,7 +216,7 @@ function CompanyOverviewContent() {
               <div className="text-xs font-medium text-muted-foreground">Managed Plots</div>
               <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">0</div>
               <div className="mt-1 text-[11px] text-muted-foreground">
-                0 reserved &middot; 0 available
+                0 reserved · 0 available
               </div>
             </div>
 
@@ -359,7 +359,7 @@ function CompanyOverviewContent() {
                         Authorized Representative
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        Managing Director &middot; Full Admin Access
+                        Managing Director · Full Admin Access
                       </div>
                     </div>
                   </div>

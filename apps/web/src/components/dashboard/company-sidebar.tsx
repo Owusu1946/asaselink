@@ -233,8 +233,8 @@ export function CompanySidebar({
           </button>
         </div>
 
-        {/* Middle Navigation & Estate Records */}
-        <div className="flex-1 overflow-y-auto px-2.5 py-1 space-y-4 text-xs">
+        {/* Middle Navigation & Estate Records (No visible scrollbar) */}
+        <div className="flex-1 overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-2.5 py-1 space-y-3 text-xs">
           {/* Main Navigation Links */}
           <nav aria-label="Company core links" className="space-y-0.5">
             {navLinks.map((item) => {
@@ -304,7 +304,7 @@ export function CompanySidebar({
                         <span className="truncate text-xs font-medium">{item.name}</span>
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           <span>{item.plots}</span>
-                          <span>&middot;</span>
+                          <span>·</span>
                           <span
                             className={cn(
                               item.status === "Verified"

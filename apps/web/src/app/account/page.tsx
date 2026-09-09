@@ -124,7 +124,7 @@ function AccountContent() {
 
             <div className="inline-flex items-center gap-2 rounded-xl border border-brand-green-300 bg-brand-green-50 px-3.5 py-1.5 text-xs font-medium text-brand-green-900 dark:border-brand-green-800 dark:bg-brand-green-950/60 dark:text-brand-green-300 shrink-0">
               <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} />
-              <span>Profile Ready &middot; Verified Buyer</span>
+              <span>Profile Ready · Verified Buyer</span>
             </div>
           </div>
 
