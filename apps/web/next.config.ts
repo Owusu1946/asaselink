@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   reactCompiler: true,
   poweredByHeader: false,
+  turbopack: {},
   webpack: (config) => {
     config.cache = false;
     return config;
