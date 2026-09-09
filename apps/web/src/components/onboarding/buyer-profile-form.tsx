@@ -210,14 +210,14 @@ export function BuyerProfileForm() {
           </label>
         </div>
 
-        {/* Submit */}
-        <div className="pt-3">
+        {/* Submit & Skip Actions */}
+        <div className="pt-3 space-y-2.5">
           <Button
             type="submit"
             size="lg"
             disabled={isSubmitting}
             aria-busy={isSubmitting}
-            className="w-full font-medium"
+            className="w-full font-medium bg-brand-green-900 text-white hover:bg-brand-green-800"
           >
             {isSubmitting ? (
               <>
@@ -228,6 +228,15 @@ export function BuyerProfileForm() {
               "Complete profile and continue"
             )}
           </Button>
+
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => router.replace(returnUrl)}
+            className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-1 transition-colors block"
+          >
+            Skip for now, take me to my dashboard &rarr;
+          </button>
         </div>
       </form>
 

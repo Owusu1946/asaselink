@@ -121,17 +121,25 @@ export function SignUpClient() {
     }
   };
 
-  // Finalize sign up session and lead directly to the login page
+  // Finalize sign up session and direct to continuation / onboarding resolver
   const finalizeSignUp = async () => {
     if (!signUp) return;
     try {
       await signUp.finalize({
-        navigate: async () => {
-          router.push("/sign-in?signed_up=true");
+        navigate: async ({ session, decorateUrl }) => {
+          const destination = session.currentTask
+            ? `/sign-up/tasks/${session.currentTask.key}`
+            : finalRedirectUrl;
+          const targetUrl = decorateUrl(destination);
+          if (targetUrl.startsWith("http")) {
+            window.location.href = targetUrl;
+          } else {
+            router.push(targetUrl);
+          }
         },
       });
     } catch {
-      router.push("/sign-in?signed_up=true");
+      router.push(finalRedirectUrl);
     }
   };
 
