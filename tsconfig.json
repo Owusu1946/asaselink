@@ -1,0 +1,3 @@
+{
+  "extends": "@asaselink/config/tsconfig.base.json"
+}

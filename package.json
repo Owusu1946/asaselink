@@ -1,0 +1,44 @@
+{
+  "name": "asaselink",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev --filter=web --filter=server",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "dev:web": "turbo run dev -F web --",
+    "dev:server": "turbo run dev -F server --",
+    "cf": "pnpm --filter web exec wrangler",
+    "cf:login": "pnpm --filter web exec wrangler login",
+    "cf:whoami": "pnpm --filter web exec wrangler whoami",
+    "cf:deploy": "pnpm --filter web exec wrangler deploy",
+    "db:push": "turbo run db:push -F @asaselink/db --",
+    "db:studio": "turbo run db:studio -F @asaselink/db --",
+    "db:generate": "turbo run db:generate -F @asaselink/db --",
+    "db:migrate": "turbo run db:migrate -F @asaselink/db --",
+    "deploy": "turbo run deploy -F @asaselink/infra --",
+    "destroy": "turbo run destroy -F @asaselink/infra --",
+    "check": "oxlint && oxfmt --write"
+  },
+  "dependencies": {
+    "@asaselink/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@asaselink/config": "workspace:*",
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "turbo": "^2.10.12",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
