@@ -5,7 +5,6 @@ import { env } from "@asaselink/env/web";
 
 import "../index.css";
 
-import Header from "@/components/header";
 import Providers from "@/components/providers";
 
 const geistSans = Geist({
@@ -29,20 +28,10 @@ export default function RootLayout({
       <body>
         {env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
           <ClerkProvider>
-            <Providers>
-              <div className="grid grid-rows-[auto_1fr] h-svh">
-                <Header />
-                {children}
-              </div>
-            </Providers>
+            <Providers>{children}</Providers>
           </ClerkProvider>
         ) : (
-          <Providers>
-            <div className="grid grid-rows-[auto_1fr] h-svh">
-              <Header />
-              {children}
-            </div>
-          </Providers>
+          <Providers>{children}</Providers>
         )}
       </body>
     </html>
