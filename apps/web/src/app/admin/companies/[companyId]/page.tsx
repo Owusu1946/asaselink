@@ -604,7 +604,7 @@ function CompanyReviewContent() {
 
 export default function AdminCompanyReviewPage() {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <CompanyReviewContent />
     </ApiProvider>
   );

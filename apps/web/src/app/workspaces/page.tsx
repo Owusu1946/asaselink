@@ -258,7 +258,7 @@ function WorkspacesContent() {
 
 export default function WorkspacesPage() {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <WorkspacesContent />
     </ApiProvider>
   );

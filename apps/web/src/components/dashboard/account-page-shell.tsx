@@ -124,7 +124,7 @@ function AccountPageShellContent({
 
 export function AccountPageShell(props: AccountPageShellProps) {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <AccountPageShellContent {...props} />
     </ApiProvider>
   );

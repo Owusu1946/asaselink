@@ -10,6 +10,7 @@ import { IdentifierForm, type IdentifierSubmitPayload } from "./identifier-form"
 import { OtpForm } from "./otp-form";
 import { AuthErrorSummary } from "./auth-error-summary";
 import { Separator } from "@asaselink/ui/components/separator";
+import { safeRedirectPath } from "@/utils/safe-redirect";
 
 export function SignInClient() {
   const { signIn, errors, fetchStatus } = useSignIn();
@@ -17,18 +18,14 @@ export function SignInClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const rawRedirectUrl = searchParams?.get("redirect_url") || "/auth/continue";
+  const redirectUrl = safeRedirectPath(searchParams?.get("redirect_url"));
 
   // If already signed in, immediately forward to continuation destination
   React.useEffect(() => {
     if (isAuthLoaded && isSignedIn) {
-      if (rawRedirectUrl.startsWith("http")) {
-        window.location.replace(rawRedirectUrl);
-      } else {
-        router.replace(rawRedirectUrl);
-      }
+      router.replace(redirectUrl);
     }
-  }, [isAuthLoaded, isSignedIn, rawRedirectUrl, router]);
+  }, [isAuthLoaded, isSignedIn, redirectUrl, router]);
 
   const [step, setStep] = React.useState<"identifier" | "otp">("identifier");
   const [activeIdentifier, setActiveIdentifier] = React.useState("");
@@ -52,9 +49,7 @@ export function SignInClient() {
     try {
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const callbackUrl = `${origin}/sso-callback`;
-      const destination = rawRedirectUrl.startsWith("http")
-        ? rawRedirectUrl
-        : `${origin}${rawRedirectUrl}`;
+      const destination = `${origin}${redirectUrl}`;
 
       const { error } = await signIn.sso({
         strategy,
@@ -124,7 +119,7 @@ export function SignInClient() {
         const destination =
           session.currentTask && session.currentTask.key !== "choose-organization"
             ? `/sign-in/tasks/${session.currentTask.key}`
-            : rawRedirectUrl;
+            : redirectUrl;
         const targetUrl = decorateUrl(destination);
         if (targetUrl.startsWith("http")) {
           window.location.href = targetUrl;

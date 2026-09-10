@@ -163,7 +163,7 @@ function CompanyPageShellContent({
 
 export function CompanyPageShell(props: CompanyPageShellProps) {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <CompanyPageShellContent {...props} />
     </ApiProvider>
   );

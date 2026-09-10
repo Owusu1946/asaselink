@@ -388,7 +388,7 @@ function CompanyOverviewContent() {
 
 export default function CompanyOverviewPage() {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <CompanyOverviewContent />
     </ApiProvider>
   );

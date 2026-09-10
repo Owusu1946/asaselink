@@ -11,6 +11,7 @@ import { OtpForm } from "./otp-form";
 import { AuthErrorSummary } from "./auth-error-summary";
 import { ClerkCaptchaMount } from "./clerk-captcha-mount";
 import { Separator } from "@asaselink/ui/components/separator";
+import { safeRedirectPath } from "@/utils/safe-redirect";
 
 export function SignUpClient() {
   const { signUp, errors, fetchStatus } = useSignUp();
@@ -19,7 +20,10 @@ export function SignUpClient() {
   const searchParams = useSearchParams();
 
   const intent = searchParams?.get("intent");
-  const returnUrl = searchParams?.get("return_url") || searchParams?.get("redirect_url");
+  const requestedReturnUrl = searchParams?.get("return_url") || searchParams?.get("redirect_url");
+  const returnUrl = requestedReturnUrl
+    ? safeRedirectPath(requestedReturnUrl, "/onboarding/profile")
+    : null;
   const continuationQuery = [
     intent ? `intent=${encodeURIComponent(intent)}` : null,
     returnUrl ? `return_url=${encodeURIComponent(returnUrl)}` : null,

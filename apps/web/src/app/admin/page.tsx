@@ -336,7 +336,7 @@ function AdminQueueContent() {
 
 export default function AdminPage() {
   return (
-    <ApiProvider>
+    <ApiProvider clerkEnabled>
       <AdminQueueContent />
     </ApiProvider>
   );
