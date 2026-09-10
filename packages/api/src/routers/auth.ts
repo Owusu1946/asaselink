@@ -179,19 +179,7 @@ export const authRouter = {
         };
       } catch (error) {
         console.error("Error in syncUser procedure:", error);
-        // Fallback: safe deterministic destination without breaking the user flow
-        return {
-          user: {
-            id: clerkId,
-            clerkId,
-            status: "active",
-            isAdmin: false,
-          },
-          buyerProfile: null,
-          memberships: [],
-          applications: [],
-          nextDestination: input?.intent === "company" ? "/company/apply" : "/onboarding/profile",
-        };
+        throw error;
       }
     }),
 
@@ -227,7 +215,7 @@ export const authRouter = {
       };
     } catch (err) {
       console.error("Error in getCurrentUser:", err);
-      return null;
+      throw err;
     }
   }),
 
@@ -290,7 +278,7 @@ export const authRouter = {
         return { success: true, profile: updated[0] };
       } catch (err) {
         console.error("Error updating buyer profile:", err);
-        return { success: true, profile: null };
+        throw err;
       }
     }),
 
@@ -356,16 +344,7 @@ export const authRouter = {
       return workspaces;
     } catch (err) {
       console.error("Error getting workspaces:", err);
-      return [
-        {
-          id: "buyer",
-          type: "buyer" as const,
-          name: "Buyer Account",
-          role: "Buyer",
-          url: "/account",
-          isLastActive: true,
-        },
-      ];
+      throw err;
     }
   }),
 };

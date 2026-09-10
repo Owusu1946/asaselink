@@ -87,8 +87,7 @@ function DetailsContent() {
       router.push("/company/apply/representative");
     } catch (err: unknown) {
       console.error("Failed to save details:", err);
-      // Advance to next step even if local mock DB offline
-      router.push("/company/apply/representative");
+      setError(err instanceof Error ? err.message : "Company details could not be saved.");
     } finally {
       setIsSubmitting(false);
     }

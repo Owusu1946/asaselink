@@ -77,20 +77,8 @@ function DocumentsContent() {
     };
   }, []);
 
-  const handleSimulateUpload = (type: string) => {
-    setDocs((prev) =>
-      prev.map((d) => {
-        if (d.type === type) {
-          return {
-            ...d,
-            fileName: `${type}_scanned_document.pdf`,
-            fileSize: 1024 * 1024 * 2.4, // 2.4 MB
-          };
-        }
-        return d;
-      }),
-    );
-    setError(null);
+  const handleUploadUnavailable = () => {
+    setError("Secure document upload is not configured yet. No file has been attached.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,21 +96,11 @@ function DocumentsContent() {
 
     setIsSubmitting(true);
     try {
-      const uploadedDocs = docs
-        .filter((d) => !!d.fileName)
-        .map((d) => ({
-          documentType: d.type,
-          fileName: d.fileName!,
-          fileKey: `uploads/${d.type}-${Date.now()}.pdf`,
-          fileSize: d.fileSize || 1024 * 500,
-          mimeType: "application/pdf",
-        }));
-
-      await orpc.company.saveDocuments.call({ documents: uploadedDocs });
+      // Existing documents have already been persisted by the secure upload service.
       router.push("/company/apply/review");
     } catch (err: unknown) {
       console.error("Failed to save documents:", err);
-      router.push("/company/apply/review");
+      setError(err instanceof Error ? err.message : "Documents could not be verified.");
     } finally {
       setIsSubmitting(false);
     }
@@ -187,7 +165,7 @@ function DocumentsContent() {
                       type="button"
                       variant={isUploaded ? "outline" : "secondary"}
                       size="sm"
-                      onClick={() => handleSimulateUpload(doc.type)}
+                      onClick={handleUploadUnavailable}
                       className="w-full sm:w-auto text-xs gap-1.5 font-medium"
                     >
                       <UploadCloud className="size-3.5" />

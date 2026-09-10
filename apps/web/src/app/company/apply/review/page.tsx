@@ -178,7 +178,7 @@ function ReviewContent() {
               <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase text-muted-foreground">
-                    Attached Documents ({documents.length || 2} attached)
+                    Attached Documents ({documents.length} attached)
                   </span>
                   <button
                     type="button"

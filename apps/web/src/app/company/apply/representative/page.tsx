@@ -83,7 +83,7 @@ function RepresentativeContent() {
       router.push("/company/apply/documents");
     } catch (err: unknown) {
       console.error("Failed to save representative:", err);
-      router.push("/company/apply/documents");
+      setError(err instanceof Error ? err.message : "Representative details could not be saved.");
     } finally {
       setIsSubmitting(false);
     }
