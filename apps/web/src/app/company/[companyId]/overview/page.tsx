@@ -42,34 +42,16 @@ function CompanyOverviewContent() {
       .then((data) => {
         if (data?.company) {
           setCompany(data.company);
-        } else {
-          setCompany({
-            id: companyId,
-            legalName: "Asase Estates Ghana Limited",
-            registrationNumber: "CS-2024-88491",
-            tin: "P0018492041",
-            status: "approved",
-            createdAt: new Date().toISOString(),
-          });
         }
       })
-      .catch(() => {
-        setCompany({
-          id: companyId,
-          legalName: "Asase Estates Ghana Limited",
-          registrationNumber: "CS-2024-88491",
-          tin: "P0018492041",
-          status: "approved",
-          createdAt: new Date().toISOString(),
-        });
-      })
+      .catch(() => setCompany(null))
       .finally(() => {
         setIsLoading(false);
       });
   }, [companyId]);
 
-  const companyName = company?.legalName || "Asase Estates Ghana Limited";
-  const isApproved = company?.status === "approved" || true;
+  const companyName = company?.legalName || "Company workspace";
+  const isApproved = company?.status === "approved";
 
   return (
     <div className="min-h-svh bg-background text-foreground flex">

@@ -27,61 +27,20 @@ interface QueueItem {
   documentsCount: number;
 }
 
-const FALLBACK_APPLICATIONS: QueueItem[] = [
-  {
-    id: "app-demo-01",
-    legalName: "Asase Estates Ghana Limited",
-    registrationNumber: "CS-2024-88491",
-    representativeName: "Kwame Mensah",
-    representativeEmail: "kwame.mensah@asaseestates.gh",
-    submittedAt: "2026-09-08T10:30:00Z",
-    status: "under_review",
-    documentsCount: 5,
-  },
-  {
-    id: "app-demo-02",
-    legalName: "Accra Green Horizons Dev Corp",
-    registrationNumber: "CS-2023-11920",
-    representativeName: "Abena Osei",
-    representativeEmail: "abena@greenhorizons.com",
-    submittedAt: "2026-09-07T14:15:00Z",
-    status: "submitted",
-    documentsCount: 4,
-  },
-  {
-    id: "app-demo-03",
-    legalName: "Volta Basin Land Holdings Ltd",
-    registrationNumber: "CS-2022-77123",
-    representativeName: "Kofi Boateng",
-    representativeEmail: "kofi.boateng@voltabasin.gh",
-    submittedAt: "2026-09-05T09:00:00Z",
-    status: "changes_requested",
-    documentsCount: 3,
-  },
-  {
-    id: "app-demo-04",
-    legalName: "Ridge & Cantonments Properties",
-    registrationNumber: "CS-2021-09412",
-    representativeName: "Efua Sutherland",
-    representativeEmail: "efua@ridgecantonments.com",
-    submittedAt: "2026-09-01T11:45:00Z",
-    status: "approved",
-    documentsCount: 5,
-  },
-];
-
 function AdminQueueContent() {
-  const [queue, setQueue] = React.useState<QueueItem[]>(FALLBACK_APPLICATIONS);
+  const [queue, setQueue] = React.useState<QueueItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
 
   const loadQueue = React.useCallback(() => {
     setIsLoading(true);
+    setLoadError(null);
     orpc.admin.getVerificationQueue
       .call()
       .then((data) => {
-        if (data && data.length > 0) {
+        if (data) {
           const mapped: QueueItem[] = data.map((item: any) => ({
             id: item.company.id,
             legalName: item.company.legalName,
@@ -89,17 +48,17 @@ function AdminQueueContent() {
             representativeName:
               `${item.application?.repFirstName || ""} ${item.application?.repLastName || ""}`.trim() ||
               "Primary Rep",
-            representativeEmail: item.application?.repEmail || "rep@company.gh",
-            submittedAt: item.company.createdAt || new Date().toISOString(),
+            representativeEmail: item.application?.repEmail || "Not provided",
+            submittedAt: item.company.createdAt,
             status: item.company.status,
-            documentsCount: 4,
+            documentsCount: item.documents?.length ?? 0,
           }));
           setQueue(mapped);
         }
       })
       .catch((err) => {
-        // Fallback to demo items if local db is empty or non-admin test session
-        console.warn("Using fallback queue data:", err);
+        setQueue([]);
+        setLoadError(err instanceof Error ? err.message : "Unable to load the verification queue.");
       })
       .finally(() => {
         setIsLoading(false);
@@ -132,6 +91,11 @@ function AdminQueueContent() {
       <AdminNav />
 
       <main className="mx-auto max-w-6xl p-6 sm:p-10 space-y-8">
+        {loadError ? (
+          <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {loadError}
+          </div>
+        ) : null}
         {/* Header Title */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-6">
           <div>

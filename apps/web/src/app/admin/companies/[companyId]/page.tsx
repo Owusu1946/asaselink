@@ -24,10 +24,11 @@ import ApiProvider from "@/components/api-provider";
 
 function CompanyReviewContent() {
   const params = useParams();
-  const companyId = (params?.companyId as string) || "app-demo-01";
+  const companyId = (params?.companyId as string) || "";
 
   const [reviewData, setReviewData] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   // Decision form state
   const [decision, setDecision] = React.useState<"approved" | "changes_requested" | "rejected">(
@@ -43,78 +44,15 @@ function CompanyReviewContent() {
 
   const loadData = React.useCallback(() => {
     setIsLoading(true);
+    setLoadError(null);
     orpc.admin.getCompanyReview
       .call({ companyId })
       .then((data) => {
         setReviewData(data);
       })
-      .catch(() => {
-        // Fallback demo data for immediate testing
-        setReviewData({
-          company: {
-            id: companyId,
-            legalName: "Asase Estates Ghana Limited",
-            registrationNumber: "CS-2024-88491",
-            tin: "P0018492041",
-            address: "14 Independence Avenue, Ridge, Accra, Ghana",
-            phone: "+233 24 412 3456",
-            website: "https://asaseestates.gh",
-            status: "under_review",
-            createdAt: "2026-09-08T10:30:00Z",
-          },
-          application: {
-            repFirstName: "Kwame",
-            repLastName: "Mensah",
-            repRole: "Managing Director",
-            repEmail: "kwame.mensah@asaseestates.gh",
-            repPhone: "+233 20 555 1234",
-            repIdNumber: "GHA-729104819-2",
-          },
-          documents: [
-            {
-              id: "doc-1",
-              type: "incorporation",
-              fileName: "Registrar_General_Certificate.pdf",
-              fileSize: 2450000,
-              verified: true,
-            },
-            {
-              id: "doc-2",
-              type: "tax_clearance",
-              fileName: "GRA_Tax_Clearance_2026.pdf",
-              fileSize: 1850000,
-              verified: true,
-            },
-            {
-              id: "doc-3",
-              type: "lands_commission",
-              fileName: "Lands_Commission_Search_Report.pdf",
-              fileSize: 4200000,
-              verified: true,
-            },
-            {
-              id: "doc-4",
-              type: "rep_id",
-              fileName: "Ghana_Card_Managing_Director.pdf",
-              fileSize: 1200000,
-              verified: true,
-            },
-          ],
-          logs: [
-            {
-              id: "log-1",
-              action: "company.application_submitted",
-              createdAt: "2026-09-08T10:30:00Z",
-              reason: "Corporate application and compliance documents submitted",
-            },
-            {
-              id: "log-2",
-              action: "company.under_review",
-              createdAt: "2026-09-08T11:00:00Z",
-              reason: "Application taken into compliance review queue by operations team",
-            },
-          ],
-        });
+      .catch((error: unknown) => {
+        setReviewData(null);
+        setLoadError(error instanceof Error ? error.message : "Unable to load this review.");
       })
       .finally(() => {
         setIsLoading(false);
@@ -144,24 +82,8 @@ function CompanyReviewContent() {
       });
       setSubmitSuccess(`Application status successfully updated to ${decision.replace("_", " ")}.`);
       loadData();
-    } catch {
-      // In local dev without db auth session, show optimistic success
-      setSubmitSuccess(`Application status updated to ${decision.replace("_", " ")} (Audited).`);
-      if (reviewData?.company) {
-        setReviewData({
-          ...reviewData,
-          company: { ...reviewData.company, status: decision },
-          logs: [
-            {
-              id: `log-${Date.now()}`,
-              action: `company.${decision}`,
-              createdAt: new Date().toISOString(),
-              reason: reason.trim(),
-            },
-            ...(reviewData.logs || []),
-          ],
-        });
-      }
+    } catch (error: unknown) {
+      setSubmitError(error instanceof Error ? error.message : "The review decision could not be saved.");
     } finally {
       setIsSubmitting(false);
     }
@@ -175,6 +97,19 @@ function CompanyReviewContent() {
     return (
       <div className="min-h-svh bg-background flex items-center justify-center">
         <Spinner className="size-6 text-brand-green-900" />
+      </div>
+    );
+  }
+
+  if (loadError || !reviewData) {
+    return (
+      <div className="min-h-svh bg-background">
+        <AdminNav />
+        <main className="mx-auto max-w-3xl p-6 sm:p-10">
+          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
+            {loadError || "This company review is unavailable."}
+          </div>
+        </main>
       </div>
     );
   }

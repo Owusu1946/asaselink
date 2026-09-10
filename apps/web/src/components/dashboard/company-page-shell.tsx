@@ -26,7 +26,7 @@ function CompanyPageShellContent({
   children,
 }: CompanyPageShellProps) {
   const params = useParams();
-  const companyId = (params?.companyId as string) || "comp-demo-123";
+  const companyId = (params?.companyId as string) || "";
 
   const [company, setCompany] = React.useState<{
     id: string;
@@ -43,25 +43,13 @@ function CompanyPageShellContent({
       .then((data) => {
         if (data?.company) {
           setCompany(data.company);
-        } else {
-          setCompany({
-            id: companyId,
-            legalName: "Asase Estates Ghana Limited",
-            status: "approved",
-          });
         }
       })
-      .catch(() => {
-        setCompany({
-          id: companyId,
-          legalName: "Asase Estates Ghana Limited",
-          status: "approved",
-        });
-      });
+      .catch(() => setCompany(null));
   }, [companyId]);
 
-  const companyName = company?.legalName || "Asase Estates Ghana Limited";
-  const isApproved = company?.status === "approved" || true;
+  const companyName = company?.legalName || "Company workspace";
+  const isApproved = company?.status === "approved";
 
   return (
     <div className="min-h-svh bg-background text-foreground flex">

@@ -22,6 +22,7 @@ function WorkspacesContent() {
   const [companyData, setCompanyData] = React.useState<any>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [_isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
 
   React.useEffect(() => {
     if (!isLoaded) return;
@@ -33,10 +34,7 @@ function WorkspacesContent() {
           setIsAdmin(true);
         }
       })
-      .catch(() => {
-        // Test fallback: allow viewing admin workspace option
-        setIsAdmin(true);
-      });
+      .catch(() => setLoadError(true));
 
     orpc.company.getApplication
       .call()
@@ -45,14 +43,7 @@ function WorkspacesContent() {
           setCompanyData(res.company);
         }
       })
-      .catch(() => {
-        // Fallback demo company for previewing workspace switch
-        setCompanyData({
-          id: "comp-demo-123",
-          legalName: "Asase Estates Ghana Limited",
-          status: "approved",
-        });
-      })
+      .catch(() => setLoadError(true))
       .finally(() => {
         setIsLoading(false);
       });
@@ -81,6 +72,11 @@ function WorkspacesContent() {
 
       {/* Main Content */}
       <main className="mx-auto w-full max-w-4xl my-auto py-10 space-y-8">
+        {loadError ? (
+          <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            Some workspaces could not be loaded. Refresh the page to try again.
+          </div>
+        ) : null}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Layers className="size-3.5" />
@@ -214,7 +210,7 @@ function WorkspacesContent() {
           )}
 
           {/* Workspace 3: Staff Compliance & Superadmin Portal */}
-          <Link
+          {isAdmin ? <Link
             href="/admin"
             className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs hover:border-brand-green-900/40 hover:shadow-md transition-all md:col-span-2"
           >
@@ -229,7 +225,7 @@ function WorkspacesContent() {
                       Compliance & Admin Operations
                     </h2>
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-gold-50 dark:bg-brand-gold-950/80 px-2 py-0.5 text-[10px] font-semibold text-brand-gold-700 dark:text-brand-gold-300">
-                      {isAdmin ? "Staff Portal" : "Admin Preview"}
+                      Staff Portal
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -244,7 +240,7 @@ function WorkspacesContent() {
                 <ChevronRight className="size-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
-          </Link>
+          </Link> : null}
         </div>
       </main>
 

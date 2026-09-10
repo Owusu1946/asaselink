@@ -19,9 +19,11 @@ import ApiProvider from "@/components/api-provider";
 function StatusContent() {
   const [appData, setAppData] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
 
   const loadData = React.useCallback(() => {
     setIsLoading(true);
+    setLoadError(false);
     orpc.company.getApplication
       .call()
       .then((data) => {
@@ -29,6 +31,7 @@ function StatusContent() {
       })
       .catch((err) => {
         console.error("Error loading application status:", err);
+        setLoadError(true);
       })
       .finally(() => {
         setIsLoading(false);
@@ -39,11 +42,20 @@ function StatusContent() {
     loadData();
   }, [loadData]);
 
-  const company = appData?.company || {
-    id: "comp-demo-123",
-    legalName: "Asase Estates Ghana Limited",
-    status: "under_review",
-  };
+  const company = appData?.company;
+
+  if (!isLoading && (!company || loadError)) {
+    return (
+      <main className="min-h-svh grid place-items-center p-6">
+        <div role="alert" className="max-w-md rounded-xl border border-destructive/40 bg-card p-6 text-center">
+          <h1 className="font-semibold">Application unavailable</h1>
+          <p className="mt-2 text-sm text-muted-foreground">We could not load your company application. Refresh to try again.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!company) return null;
 
   const status = company.status || "under_review";
   const isApproved = status === "approved";

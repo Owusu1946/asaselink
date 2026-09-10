@@ -30,7 +30,10 @@ function ReviewContent() {
       })
       .catch((err) => {
         console.error("Failed to load application data:", err);
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setError("Your application could not be loaded. Refresh the page to try again.");
+          setIsLoading(false);
+        }
       });
     return () => {
       isMounted = false;
@@ -55,25 +58,14 @@ function ReviewContent() {
       router.push("/company/application");
     } catch (err: unknown) {
       console.error("Failed to submit application:", err);
-      router.push("/company/application");
+      setError(err instanceof Error ? err.message : "Your application could not be submitted.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const company = applicationData?.company || {
-    legalName: "Asase Estates Ghana Limited",
-    registrationNumber: "CS123452021",
-    email: "info@yourcompany.com",
-    phone: "+233 30 212 3456",
-  };
-
-  const app = applicationData?.application || {
-    repFullName: "Nana Yaw Osei",
-    repRole: "Managing Director",
-    repEmail: "nana@yourcompany.com",
-    repIdNumber: "GHA-712345678-9",
-  };
+  const company = applicationData?.company;
+  const app = applicationData?.application;
 
   const documents = applicationData?.documents || [];
 
@@ -109,6 +101,10 @@ function ReviewContent() {
           {isLoading ? (
             <div className="flex justify-center p-8">
               <Spinner className="size-6 text-muted-foreground" />
+            </div>
+          ) : !company || !app ? (
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              No application data is available to review. Complete the earlier steps or refresh the page.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
