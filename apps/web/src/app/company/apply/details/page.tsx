@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CompanyProgressHeader } from "@/components/company/company-progress-header";
-import { Button } from "@asaselink/ui/components/button";
+import { CompanyOnboardingShell } from "@/components/company/company-onboarding-shell";
 import { Input } from "@asaselink/ui/components/input";
 import { Label } from "@asaselink/ui/components/label";
-import { Spinner } from "@asaselink/ui/components/spinner";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
 
@@ -42,32 +41,29 @@ function DetailsContent() {
         setWebsite(data.company.website || "");
         setAddress(data.company.address || "");
       })
-      .catch(() => {
-        // Silently ignore draft load errors
-      });
+      .catch(() => {});
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleNext = async () => {
     setError(null);
 
     if (!legalName.trim()) {
-      setError("Please provide the legal registered business name.");
+      setError("Please enter your legal business name.");
       return;
     }
     if (!registrationNumber.trim()) {
-      setError("Please provide the RGD registration number.");
+      setError("Please enter your business registration number.");
       return;
     }
-    if (!email.trim()) {
-      setError("Please provide the official business email.");
+    if (!email.trim() || !email.includes("@")) {
+      setError("Please enter a valid business email.");
       return;
     }
     if (!phone.trim()) {
-      setError("Please provide the official company phone number.");
+      setError("Please enter a valid phone number.");
       return;
     }
 
@@ -78,7 +74,7 @@ function DetailsContent() {
         tradeName: tradeName.trim() || undefined,
         registrationNumber: registrationNumber.trim(),
         taxNumber: taxNumber.trim() || undefined,
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: phone.trim(),
         website: website.trim() || undefined,
         address: address.trim() || undefined,
@@ -87,180 +83,163 @@ function DetailsContent() {
       router.push("/company/apply/representative");
     } catch (err: unknown) {
       console.error("Failed to save details:", err);
-      setError(err instanceof Error ? err.message : "Company details could not be saved.");
+      setError(err instanceof Error ? err.message : "Could not save company details.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-svh bg-background text-foreground flex flex-col">
-      <CompanyProgressHeader currentStep={1} />
+    <CompanyOnboardingShell
+      currentStep={1}
+      title="Tell us about your company"
+      subtitle="Enter your official business information to begin listing estates."
+      onNext={handleNext}
+      isSubmitting={isSubmitting}
+      nextLabel="Continue"
+    >
+      <div className="space-y-6">
+        {error && (
+          <div
+            role="alert"
+            className="flex items-center gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive"
+          >
+            <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
 
-      <main className="mx-auto w-full max-w-2xl px-6 py-10 my-auto">
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-xs">
-          <div className="mb-6">
-            <span className="text-xs font-semibold uppercase tracking-wider text-brand-gold-600 dark:text-brand-gold-400">
-              Step 1 of 4 &middot; Corporate Entity
-            </span>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Company information
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Enter your registered corporate details exactly as recorded at Registrar
-              General&apos;s Department.
-            </p>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="legal-name" className="text-xs font-semibold text-foreground">
+              Legal business name
+            </Label>
+            <Input
+              id="legal-name"
+              type="text"
+              required
+              disabled={isSubmitting}
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+              placeholder="e.g. Asase Estates Limited"
+              className="h-12 rounded-xl text-sm"
+            />
           </div>
 
-          {error && (
-            <div
-              role="alert"
-              className="mb-6 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-            >
-              <AlertCircle className="size-4 shrink-0 translate-y-0.5" />
-              <p>{error}</p>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="trade-name" className="text-xs font-semibold text-foreground">
+              Brand / Estate name <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="trade-name"
+              type="text"
+              disabled={isSubmitting}
+              value={tradeName}
+              onChange={(e) => setTradeName(e.target.value)}
+              placeholder="e.g. Asase Hills"
+              className="h-12 rounded-xl text-sm"
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="legal-name" className="text-xs font-medium text-foreground">
-                Legal corporate name *
+              <Label htmlFor="reg-num" className="text-xs font-semibold text-foreground">
+                Registration number
               </Label>
               <Input
-                id="legal-name"
+                id="reg-num"
                 type="text"
                 required
                 disabled={isSubmitting}
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                placeholder="e.g. Asase Estates Ghana Limited"
-                className="h-10"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value)}
+                placeholder="e.g. CS12345678"
+                className="h-12 rounded-xl text-sm font-mono uppercase"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="trade-name" className="text-xs font-medium text-foreground">
-                Trade / Brand name (optional)
+              <Label htmlFor="tax-num" className="text-xs font-semibold text-foreground">
+                Tax number <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Input
-                id="trade-name"
+                id="tax-num"
                 type="text"
                 disabled={isSubmitting}
-                value={tradeName}
-                onChange={(e) => setTradeName(e.target.value)}
-                placeholder="e.g. Asase Hills Properties"
-                className="h-10"
+                value={taxNumber}
+                onChange={(e) => setTaxNumber(e.target.value)}
+                placeholder="e.g. C0012345678"
+                className="h-12 rounded-xl text-sm font-mono uppercase"
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-num" className="text-xs font-medium text-foreground">
-                  RGD Registration number *
-                </Label>
-                <Input
-                  id="reg-num"
-                  type="text"
-                  required
-                  disabled={isSubmitting}
-                  value={registrationNumber}
-                  onChange={(e) => setRegistrationNumber(e.target.value)}
-                  placeholder="e.g. CS123452021"
-                  className="h-10 font-mono text-xs uppercase"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="tax-num" className="text-xs font-medium text-foreground">
-                  Tax Identification (TIN)
-                </Label>
-                <Input
-                  id="tax-num"
-                  type="text"
-                  disabled={isSubmitting}
-                  value={taxNumber}
-                  onChange={(e) => setTaxNumber(e.target.value)}
-                  placeholder="e.g. P0012345678"
-                  className="h-10 font-mono text-xs uppercase"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-email" className="text-xs font-medium text-foreground">
-                  Business email address *
-                </Label>
-                <Input
-                  id="comp-email"
-                  type="email"
-                  required
-                  disabled={isSubmitting}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="info@yourcompany.com"
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="comp-phone" className="text-xs font-medium text-foreground">
-                  Business phone *
-                </Label>
-                <Input
-                  id="comp-phone"
-                  type="tel"
-                  required
-                  disabled={isSubmitting}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+233 30 212 3456"
-                  className="h-10 tabular-nums"
-                />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-semibold text-foreground">
+                Business email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                disabled={isSubmitting}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="info@company.com"
+                className="h-12 rounded-xl text-sm"
+              />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="comp-address" className="text-xs font-medium text-foreground">
-                Registered office address (Ghana)
+              <Label htmlFor="phone" className="text-xs font-semibold text-foreground">
+                Phone number
               </Label>
               <Input
-                id="comp-address"
-                type="text"
+                id="phone"
+                type="tel"
+                required
                 disabled={isSubmitting}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. Suite 4B, Airport Residential Area, Accra"
-                className="h-10"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+233 24 000 0000"
+                className="h-12 rounded-xl text-sm"
               />
             </div>
+          </div>
 
-            <div className="pt-4 flex justify-end">
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting}
-                aria-busy={isSubmitting}
-                className="gap-2 font-medium"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Spinner className="size-4" />
-                    <span>Saving details...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Continue to representative</span>
-                    <ArrowRight className="size-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
+          <div className="space-y-1.5">
+            <Label htmlFor="address" className="text-xs font-semibold text-foreground">
+              Office address <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="address"
+              type="text"
+              disabled={isSubmitting}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g. Airport Residential Area, Accra"
+              className="h-12 rounded-xl text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="website" className="text-xs font-semibold text-foreground">
+              Website <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="website"
+              type="url"
+              disabled={isSubmitting}
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://company.com"
+              className="h-12 rounded-xl text-sm"
+            />
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </CompanyOnboardingShell>
   );
 }
 

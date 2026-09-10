@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Check } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Tick01Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@asaselink/ui/lib/utils";
 
 interface CompanyProgressHeaderProps {
@@ -25,12 +26,9 @@ export function CompanyProgressHeader({ currentStep }: CompanyProgressHeaderProp
           href="/"
           className="flex items-center gap-2 font-semibold text-base sm:text-lg tracking-tight hover:opacity-90 transition-opacity"
         >
-          <span className="h-3 w-3 rounded-full bg-brand-gold-500" aria-hidden="true" />
+          <span className="h-3 w-3 rounded-full bg-brand-green-900 dark:bg-brand-green-400" aria-hidden="true" />
           <span>
             Asase<span className="text-brand-green-900 dark:text-brand-green-400">Link</span>
-          </span>
-          <span className="hidden sm:inline-block text-xs font-normal text-muted-foreground border-l border-border pl-2 ml-1">
-            Company Verification
           </span>
         </Link>
 
@@ -48,13 +46,13 @@ export function CompanyProgressHeader({ currentStep }: CompanyProgressHeaderProp
                     isCompleted &&
                       "bg-brand-green-900 text-brand-white dark:bg-brand-green-400 dark:text-brand-green-950",
                     isCurrent &&
-                      "border-2 border-brand-gold-500 bg-brand-gold-50 text-brand-gold-900 font-bold dark:bg-brand-gold-950 dark:text-brand-gold-300",
+                      "border-2 border-brand-green-900 font-bold dark:border-brand-green-400",
                     !isCompleted &&
                       !isCurrent &&
                       "border border-border text-muted-foreground bg-secondary/40",
                   )}
                 >
-                  {isCompleted ? <Check className="size-3.5" /> : s.step}
+                  {isCompleted ? <HugeiconsIcon icon={Tick01Icon} size={14} /> : s.step}
                 </div>
                 <span
                   className={cn(

@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CompanyProgressHeader } from "@/components/company/company-progress-header";
-import { Button } from "@asaselink/ui/components/button";
+import { CompanyOnboardingShell } from "@/components/company/company-onboarding-shell";
 import { Input } from "@asaselink/ui/components/input";
 import { Label } from "@asaselink/ui/components/label";
-import { Spinner } from "@asaselink/ui/components/spinner";
-import { AlertCircle, ArrowLeft, ArrowRight, UserCheck } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
 
@@ -44,28 +43,27 @@ function RepresentativeContent() {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleNext = async () => {
     setError(null);
 
     if (!repFullName.trim()) {
-      setError("Please provide the representative's full legal name.");
+      setError("Please enter the representative's full legal name.");
       return;
     }
     if (!repRole.trim()) {
-      setError("Please specify the representative's corporate role.");
+      setError("Please specify their role.");
       return;
     }
-    if (!repEmail.trim()) {
-      setError("Please provide the representative's direct email.");
+    if (!repEmail.trim() || !repEmail.includes("@")) {
+      setError("Please enter a valid email address.");
       return;
     }
     if (!repPhone.trim()) {
-      setError("Please provide the representative's direct mobile number.");
+      setError("Please enter a valid phone number.");
       return;
     }
     if (!repIdNumber.trim()) {
-      setError("Please provide the national ID number.");
+      setError("Please enter the identification number.");
       return;
     }
 
@@ -74,7 +72,7 @@ function RepresentativeContent() {
       await orpc.company.saveRepresentative.call({
         repFullName: repFullName.trim(),
         repRole: repRole.trim(),
-        repEmail: repEmail.trim(),
+        repEmail: repEmail.trim().toLowerCase(),
         repPhone: repPhone.trim(),
         repIdType,
         repIdNumber: repIdNumber.trim().toUpperCase(),
@@ -83,187 +81,136 @@ function RepresentativeContent() {
       router.push("/company/apply/documents");
     } catch (err: unknown) {
       console.error("Failed to save representative:", err);
-      setError(err instanceof Error ? err.message : "Representative details could not be saved.");
+      setError(err instanceof Error ? err.message : "Could not save representative details.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-svh bg-background text-foreground flex flex-col">
-      <CompanyProgressHeader currentStep={2} />
+    <CompanyOnboardingShell
+      currentStep={2}
+      title="Who is the primary representative?"
+      subtitle="Add the contact details of the authorized officer managing this account."
+      backHref="/company/apply/details"
+      onNext={handleNext}
+      isSubmitting={isSubmitting}
+      nextLabel="Continue"
+    >
+      <div className="space-y-6">
+        {error && (
+          <div
+            role="alert"
+            className="flex items-center gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive"
+          >
+            <HugeiconsIcon icon={AlertCircleIcon} size={16} className="shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
 
-      <main className="mx-auto w-full max-w-2xl px-6 py-10 my-auto">
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-10 shadow-xs">
-          <div className="mb-6">
-            <span className="text-xs font-semibold uppercase tracking-wider text-brand-gold-600 dark:text-brand-gold-400">
-              Step 2 of 4 &middot; Authorized Officer
-            </span>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Company representative
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Identify the primary executive officer or legal counsel accountable for land listings
-              and customer declarations.
-            </p>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="rep-name" className="text-xs font-semibold text-foreground">
+              Full legal name
+            </Label>
+            <Input
+              id="rep-name"
+              type="text"
+              required
+              disabled={isSubmitting}
+              value={repFullName}
+              onChange={(e) => setRepFullName(e.target.value)}
+              placeholder="e.g. Kwame Mensah"
+              className="h-12 rounded-xl text-sm"
+            />
           </div>
 
-          <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground">
-            <UserCheck className="size-4 text-brand-green-700 dark:text-brand-green-400 shrink-0 mt-0.5" />
-            <p>
-              This individual will be authorized to execute estate plot declarations and sign
-              digital reservation certificates.
-            </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="rep-role" className="text-xs font-semibold text-foreground">
+              Official title / role
+            </Label>
+            <Input
+              id="rep-role"
+              type="text"
+              required
+              disabled={isSubmitting}
+              value={repRole}
+              onChange={(e) => setRepRole(e.target.value)}
+              placeholder="e.g. Managing Director, CEO, Legal Counsel"
+              className="h-12 rounded-xl text-sm"
+            />
           </div>
 
-          {error && (
-            <div
-              role="alert"
-              className="mb-6 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-            >
-              <AlertCircle className="size-4 shrink-0 translate-y-0.5" />
-              <p>{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="rep-name" className="text-xs font-medium text-foreground">
-                Representative full name *
+              <Label htmlFor="id-type" className="text-xs font-semibold text-foreground">
+                ID type
+              </Label>
+              <select
+                id="id-type"
+                value={repIdType}
+                onChange={(e) => setRepIdType(e.target.value)}
+                disabled={isSubmitting}
+                className="flex h-12 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="Ghana Card">Ghana Card</option>
+                <option value="Passport">Passport</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="id-num" className="text-xs font-semibold text-foreground">
+                ID number
               </Label>
               <Input
-                id="rep-name"
+                id="id-num"
                 type="text"
                 required
                 disabled={isSubmitting}
-                value={repFullName}
-                onChange={(e) => setRepFullName(e.target.value)}
-                placeholder="e.g. Nana Yaw Osei"
-                className="h-10"
+                value={repIdNumber}
+                onChange={(e) => setRepIdNumber(e.target.value.toUpperCase())}
+                placeholder="e.g. GHA-123456789-0"
+                className="h-12 rounded-xl text-sm font-mono uppercase"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="rep-email" className="text-xs font-semibold text-foreground">
+                Representative email
+              </Label>
+              <Input
+                id="rep-email"
+                type="email"
+                required
+                disabled={isSubmitting}
+                value={repEmail}
+                onChange={(e) => setRepEmail(e.target.value)}
+                placeholder="officer@company.com"
+                className="h-12 rounded-xl text-sm"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="rep-role" className="text-xs font-medium text-foreground">
-                Corporate capacity / Title *
+              <Label htmlFor="rep-phone" className="text-xs font-semibold text-foreground">
+                Direct phone number
               </Label>
               <Input
-                id="rep-role"
-                type="text"
+                id="rep-phone"
+                type="tel"
                 required
                 disabled={isSubmitting}
-                value={repRole}
-                onChange={(e) => setRepRole(e.target.value)}
-                placeholder="e.g. Managing Director / Principal Partner"
-                className="h-10"
+                value={repPhone}
+                onChange={(e) => setRepPhone(e.target.value)}
+                placeholder="+233 24 000 0000"
+                className="h-12 rounded-xl text-sm"
               />
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="rep-email" className="text-xs font-medium text-foreground">
-                  Direct email address *
-                </Label>
-                <Input
-                  id="rep-email"
-                  type="email"
-                  required
-                  disabled={isSubmitting}
-                  value={repEmail}
-                  onChange={(e) => setRepEmail(e.target.value)}
-                  placeholder="nana@yourcompany.com"
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rep-phone" className="text-xs font-medium text-foreground">
-                  Direct mobile number *
-                </Label>
-                <Input
-                  id="rep-phone"
-                  type="tel"
-                  required
-                  disabled={isSubmitting}
-                  value={repPhone}
-                  onChange={(e) => setRepPhone(e.target.value)}
-                  placeholder="+233 24 123 4567"
-                  className="h-10 tabular-nums"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="id-type" className="text-xs font-medium text-foreground">
-                  Identity document type *
-                </Label>
-                <select
-                  id="id-type"
-                  value={repIdType}
-                  onChange={(e) => setRepIdType(e.target.value)}
-                  disabled={isSubmitting}
-                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                >
-                  <option value="Ghana Card">Ghana Card (NIA)</option>
-                  <option value="Passport">Ghana Passport</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="id-number" className="text-xs font-medium text-foreground">
-                  Identification number *
-                </Label>
-                <Input
-                  id="id-number"
-                  type="text"
-                  required
-                  disabled={isSubmitting}
-                  value={repIdNumber}
-                  onChange={(e) => setRepIdNumber(e.target.value)}
-                  placeholder="e.g. GHA-712345678-9"
-                  className="h-10 font-mono text-xs uppercase"
-                />
-              </div>
-            </div>
-
-            <div className="pt-6 flex items-center justify-between border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                disabled={isSubmitting}
-                onClick={() => router.push("/company/apply/details")}
-                className="gap-2"
-              >
-                <ArrowLeft className="size-4" />
-                <span>Back to details</span>
-              </Button>
-
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting}
-                aria-busy={isSubmitting}
-                className="gap-2 font-medium"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Spinner className="size-4" />
-                    <span>Saving representative...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Continue to documents</span>
-                    <ArrowRight className="size-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </CompanyOnboardingShell>
   );
 }
 
