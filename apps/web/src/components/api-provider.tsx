@@ -2,7 +2,6 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useEffect } from "react";
 
 import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
@@ -33,7 +32,6 @@ export default function ApiProvider({
     <QueryClientProvider client={queryClient}>
       {clerkEnabled ? <ClerkApiAuthBridge /> : null}
       {children}
-      {process.env.NODE_ENV === "development" ? <ReactQueryDevtools /> : null}
     </QueryClientProvider>
   );
 }

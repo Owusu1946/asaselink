@@ -46,7 +46,7 @@ export const companyRouter = {
       };
     } catch (err) {
       console.error("Error in getApplication:", err);
-      return null;
+      throw err;
     }
   }),
 

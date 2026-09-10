@@ -34,7 +34,7 @@ export const adminRouter = {
       return queue;
     } catch (err) {
       console.error("Error in getVerificationQueue:", err);
-      return [];
+      throw err;
     }
   }),
 

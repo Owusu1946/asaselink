@@ -7,12 +7,10 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   poweredByHeader: false,
   turbopack: {},
-  webpack: (config) => {
-    config.cache = false;
-    return config;
-  },
 };
 
 export default nextConfig;
 
-initOpenNextCloudflareForDev();
+if (process.env.ENABLE_CLOUDFLARE_DEV === "true") {
+  initOpenNextCloudflareForDev();
+}
