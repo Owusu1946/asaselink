@@ -1,158 +1,46 @@
 "use client";
 
 import * as React from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { SidebarRight01Icon, Search01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { PlusSignIcon, Search01Icon, SidebarRight01Icon } from "@hugeicons/core-free-icons";
 import { CompanySidebar } from "@/components/dashboard/company-sidebar";
 import { buttonVariants } from "@asaselink/ui/components/button";
 import { orpc } from "@/utils/orpc";
-import ApiProvider from "@/components/api-provider";
 import { cn } from "@asaselink/ui/lib/utils";
 
-interface CompanyPageShellProps {
-  title: string;
-  description: string;
-  breadcrumb: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}
+const META: Record<string, { title: string; description: string }> = {
+  overview: { title: "Company overview", description: "Verification status, estate inventory, and operational activity." },
+  estates: { title: "Registered Estates", description: "Verified master plans and estate layouts managed by your company." },
+  plots: { title: "Managed Plots", description: "Plot inventory, availability, and reservation status." },
+  cadastral: { title: "Cadastral Records", description: "Survey plans and boundary verification records." },
+  staff: { title: "Company Staff", description: "Workspace members, roles, and access." },
+};
 
-function CompanyPageShellContent({
-  title,
-  description,
-  breadcrumb,
-  action,
-  children,
-}: CompanyPageShellProps) {
-  const params = useParams();
-  const companyId = (params?.companyId as string) || "";
-
-  const [company, setCompany] = React.useState<{
-    id: string;
-    legalName: string;
-    status: string;
-  } | null>(null);
-
+export function CompanyWorkspaceShell({ children }: { children: React.ReactNode }) {
+  const params = useParams<{ companyId: string }>();
+  const pathname = usePathname();
+  const companyId = params.companyId;
+  const section = pathname.split("/").at(-1) ?? "overview";
+  const meta = META[section] ?? META.overview!;
+  const [company, setCompany] = React.useState<{ legalName: string; status: string } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
-    orpc.company.getApplication
-      .call()
-      .then((data) => {
-        if (data?.company) {
-          setCompany(data.company);
-        }
-      })
-      .catch(() => setCompany(null));
-  }, [companyId]);
+    orpc.company.getApplication.call().then((data) => setCompany(data?.company ?? null)).catch(() => setCompany(null));
+  }, []);
 
-  const companyName = company?.legalName || "Company workspace";
-  const isApproved = company?.status === "approved";
-
-  return (
-    <div className="min-h-svh bg-background text-foreground flex">
-      {/* Sleek ChatGPT-Inspired Company Sidebar */}
-      <CompanySidebar
-        companyName={companyName}
-        companyId={companyId}
-        isVerified={isApproved}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        mobileOpen={mobileSidebarOpen}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
-      />
-
-      {/* Main Content Area */}
-      <div
-        className={cn(
-          "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "lg:pl-[68px]" : "lg:pl-[260px]",
-        )}
-      >
-        {/* Sleek Top Navigation Header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 px-4 sm:px-8 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.innerWidth < 1024) {
-                  setMobileSidebarOpen(true);
-                } else {
-                  setSidebarCollapsed(!sidebarCollapsed);
-                }
-              }}
-              className="flex size-8 items-center justify-center rounded-lg text-neutral-600 dark:text-neutral-400 hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              aria-label="Toggle sidebar"
-            >
-              <HugeiconsIcon icon={SidebarRight01Icon} size={18} />
-            </button>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Company</span>
-              <span>/</span>
-              <span>{breadcrumb}</span>
-            </div>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2 max-w-sm w-full mx-4">
-            <div className="relative w-full">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                type="text"
-                placeholder="Search layouts, surveyor plots, deeds..."
-                className="w-full rounded-xl border border-border bg-muted/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-brand-green-800 focus:bg-background focus:outline-none focus:ring-1 focus:ring-brand-green-800 transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            {action ? (
-              action
-            ) : (
-              <button
-                type="button"
-                className={buttonVariants({
-                  variant: "default",
-                  size: "sm",
-                  className:
-                    "gap-1.5 text-xs font-medium rounded-xl h-8 px-3 bg-brand-green-900 text-white hover:bg-brand-green-800 shadow-xs",
-                })}
-              >
-                <HugeiconsIcon icon={PlusSignIcon} size={14} />
-                <span className="hidden sm:inline">Register estate</span>
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* Page Main Content */}
-        <main className="mx-auto w-full max-w-6xl p-6 sm:p-10 space-y-8 flex-1">
-          {/* Header */}
-          <div className="border-b border-border pb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              {title}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-          </div>
-
-          {/* Subpage Content */}
-          <div>{children}</div>
-        </main>
-      </div>
+  return <div className="flex min-h-svh bg-background text-foreground">
+    <CompanySidebar companyName={company?.legalName ?? "Company workspace"} companyId={companyId} isVerified={company?.status === "approved"} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+    <div className={cn("flex min-w-0 flex-1 flex-col transition-[padding] duration-300", sidebarCollapsed ? "lg:pl-[68px]" : "lg:pl-[260px]")}>
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-8">
+        <div className="flex items-center gap-3"><button type="button" onClick={() => window.innerWidth < 1024 ? setMobileSidebarOpen(true) : setSidebarCollapsed((value) => !value)} className="grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="Toggle sidebar"><HugeiconsIcon icon={SidebarRight01Icon} size={18} /></button><span className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Company</span> / {meta.title}</span></div>
+        <div className="hidden w-full max-w-sm px-6 md:block"><div className="relative"><HugeiconsIcon icon={Search01Icon} size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input aria-label="Search company workspace" placeholder="Search company workspace..." className="w-full rounded-xl border border-border bg-muted/50 py-1.5 pl-8 pr-3 text-xs outline-none focus:ring-1 focus:ring-ring" /></div></div>
+        <Link href={`/company/${companyId}/estates`} className={buttonVariants({ size: "sm", className: "h-8 gap-1.5 rounded-xl text-xs" })}><HugeiconsIcon icon={PlusSignIcon} size={14} /><span className="hidden sm:inline">Register estate</span></Link>
+      </header>
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-8 p-6 sm:p-10"><div className="border-b border-border pb-6"><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{meta.title}</h1><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div>{children}</main>
     </div>
-  );
-}
-
-export function CompanyPageShell(props: CompanyPageShellProps) {
-  return (
-    <ApiProvider clerkEnabled>
-      <CompanyPageShellContent {...props} />
-    </ApiProvider>
-  );
+  </div>;
 }

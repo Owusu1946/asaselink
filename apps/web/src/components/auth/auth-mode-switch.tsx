@@ -31,6 +31,7 @@ export function AuthModeSwitch({ currentMode }: AuthModeSwitchProps) {
 
       <Link
         href={`/sign-in${queryString}`}
+        prefetch
         aria-current={isSignIn ? "page" : undefined}
         className={cn(
           "relative z-10 flex-1 py-1.5 text-center text-xs sm:text-sm font-medium transition-colors duration-fast rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -44,6 +45,7 @@ export function AuthModeSwitch({ currentMode }: AuthModeSwitchProps) {
 
       <Link
         href={`/sign-up${queryString}`}
+        prefetch
         aria-current={!isSignIn ? "page" : undefined}
         className={cn(
           "relative z-10 flex-1 py-1.5 text-center text-xs sm:text-sm font-medium transition-colors duration-fast rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring",
