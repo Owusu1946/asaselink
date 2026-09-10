@@ -164,6 +164,8 @@ export function SignUpClient() {
     }
   };
 
+  const isSignUpComplete = () => signUp?.status === "complete";
+
   // Verify OTP code
   const handleVerifyOtp = async (code: string) => {
     if (!signUp) return;
@@ -171,21 +173,36 @@ export function SignUpClient() {
     setErrorMessage(null);
 
     try {
+      // OTP submission is idempotent: a completed attempt may be replayed by
+      // autofill, a double-click, or a navigation restoration.
+      if (isSignUpComplete()) {
+        await finalizeSignUp();
+        return;
+      }
+
       if (activeMethod === "email") {
         const { error } = await signUp.verifications.verifyEmailCode({ code });
         if (error) {
+          if (error.message?.toLowerCase().includes("already been verified")) {
+            await finalizeSignUp();
+            return;
+          }
           setErrorMessage(error.message || "Incorrect or expired code. Please try again.");
           return;
         }
       } else {
         const { error } = await signUp.verifications.verifyPhoneCode({ code });
         if (error) {
+          if (error.message?.toLowerCase().includes("already been verified")) {
+            await finalizeSignUp();
+            return;
+          }
           setErrorMessage(error.message || "Incorrect or expired code. Please try again.");
           return;
         }
       }
 
-      if (signUp.status === "complete") {
+      if (isSignUpComplete()) {
         await finalizeSignUp();
       } else {
         setErrorMessage("Verification requires additional requirements.");
