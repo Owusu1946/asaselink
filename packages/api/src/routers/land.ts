@@ -133,11 +133,22 @@ export const landRouter = {
     if (!estate) throw new ORPCError("NOT_FOUND");
     const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
     const boundaryJson = JSON.stringify(input.boundary);
-    const [created] = await db.insert(plots).values({ estateId: input.estateId, plotNumber: input.plotNumber, price: input.price.toFixed(2), areaSquareMeters: "1", boundary: sql`ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326)` })
-      .returning({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price });
+    let created: { id: string; plotNumber: string; status: string; areaSquareMeters: string; price: string } | undefined;
+    try {
+      [created] = await db.insert(plots).values({ estateId: input.estateId, plotNumber: input.plotNumber, price: input.price.toFixed(2), areaSquareMeters: "1", boundary: sql`ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326)` })
+        .returning({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price });
+    } catch (error) {
+      const message = error instanceof Error ? `${error.message} ${String((error as Error & { cause?: unknown }).cause ?? "")}` : String(error);
+      if (message.includes("contained by its estate")) throw new ORPCError("BAD_REQUEST", { message: "Keep every plot corner inside the highlighted estate boundary. Small edge differences up to one metre are snapped automatically." });
+      if (message.includes("overlaps an existing plot")) throw new ORPCError("CONFLICT", { message: "This boundary overlaps a plot already registered in the estate." });
+      if (message.includes("restricted area")) throw new ORPCError("BAD_REQUEST", { message: "This plot crosses a restricted area. Adjust its boundary and try again." });
+      throw error;
+    }
     if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
+    const actualGeometry = await db.execute(sql`SELECT ST_AsGeoJSON(boundary)::json AS boundary FROM plots WHERE id=${created.id}`);
+    const savedBoundary = (actualGeometry.rows[0] as { boundary?: typeof input.boundary } | undefined)?.boundary ?? input.boundary;
     await Promise.all([
-      db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: input.boundary, actorUserId: access.user.id, reason: input.reason }),
+      db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
     ]);
     return created;
