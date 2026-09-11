@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { AdminNav } from "@/components/dashboard/admin-nav";
 import { Button } from "@asaselink/ui/components/button";
 import { Spinner } from "@asaselink/ui/components/spinner";
 import {
@@ -20,7 +19,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
-import ApiProvider from "@/components/api-provider";
 import { documentTypeLabel, fileSizeLabel } from "@/utils/document-display";
 
 function CompanyReviewContent() {
@@ -105,7 +103,6 @@ function CompanyReviewContent() {
   if (loadError || !reviewData) {
     return (
       <div className="min-h-svh bg-background">
-        <AdminNav />
         <main className="mx-auto max-w-3xl p-6 sm:p-10">
           <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
             {loadError || "This company review is unavailable."}
@@ -122,7 +119,6 @@ function CompanyReviewContent() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <AdminNav />
 
       <main className="mx-auto max-w-6xl p-6 sm:p-10 space-y-8">
         {/* Back Link */}
@@ -538,9 +534,5 @@ function CompanyReviewContent() {
 }
 
 export default function AdminCompanyReviewPage() {
-  return (
-    <ApiProvider clerkEnabled>
-      <CompanyReviewContent />
-    </ApiProvider>
-  );
+  return <CompanyReviewContent />;
 }
