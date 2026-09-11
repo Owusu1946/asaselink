@@ -25,6 +25,8 @@ import {
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@asaselink/ui/lib/utils";
+import { client } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 interface CompanySidebarProps {
   companyName: string;
@@ -58,6 +60,7 @@ export function CompanySidebar({
   const [searchFilter, setSearchFilter] = React.useState("");
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [activeItemMenu, setActiveItemMenu] = React.useState<string | null>(null);
+  const [exportingEstate, setExportingEstate] = React.useState<string | null>(null);
 
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -83,6 +86,26 @@ export function CompanySidebar({
   const filteredEstates = recentEstates.filter((item) =>
     item.name.toLowerCase().includes(searchFilter.toLowerCase()),
   );
+
+  async function exportPlotList(estate: CompanySidebarProps["recentEstates"][number]) {
+    setActiveItemMenu(null);
+    setExportingEstate(estate.id);
+    try {
+      const plots = await client.land.listEstatePlots({ estateId: estate.id });
+      const quote = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+      const csv = [["Plot number", "Status", "Area (sqm)", "Price (GHS)", "Last updated"], ...plots.map((plot) => [plot.plotNumber, plot.status, plot.areaSquareMeters, plot.price, plot.updatedAt])]
+        .map((row) => row.map(quote).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${estate.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "estate"}-plots.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      notify.success(plots.length ? `Exported ${plots.length} plot${plots.length === 1 ? "" : "s"}.` : "Exported an empty plot register.");
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "The plot register could not be exported.");
+    } finally { setExportingEstate(null); }
+  }
 
   const navLinks = [
     {
@@ -292,25 +315,26 @@ export function CompanySidebar({
                         >
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            onClick={() => { setActiveItemMenu(null); router.push(`/company/${companyId}/cadastral?estate=${item.id}`); }}
                             className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
                           >
                             View cadastral map
                           </button>
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            disabled={exportingEstate === item.id}
+                            onClick={() => void exportPlotList(item)}
                             className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
                           >
-                            Export plot list
+                            {exportingEstate === item.id ? "Preparing export…" : "Export plot list"}
                           </button>
                           <div className="my-1 border-t border-border" />
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            onClick={() => { setActiveItemMenu(null); router.push(`/company/${companyId}/estates/${item.id}`); }}
                             className="w-full rounded-md px-2 py-1.5 text-left text-muted-foreground hover:bg-muted transition-colors"
                           >
-                            Archive layout
+                            Open estate workspace
                           </button>
                         </div>
                       )}
