@@ -5,7 +5,6 @@ import { env } from "@asaselink/env/web";
 
 import "../index.css";
 
-import Header from "@/components/header";
 import Providers from "@/components/providers";
 
 const geistSans = Geist({
@@ -24,27 +23,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const content = (
     <html lang="en" className={geistSans.variable} suppressHydrationWarning>
       <body>
-        {env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
-          <ClerkProvider>
-            <Providers>
-              <div className="grid grid-rows-[auto_1fr] h-svh">
-                <Header />
-                {children}
-              </div>
-            </Providers>
-          </ClerkProvider>
-        ) : (
-          <Providers>
-            <div className="grid grid-rows-[auto_1fr] h-svh">
-              <Header />
-              {children}
-            </div>
-          </Providers>
-        )}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
+
+  if (env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return (
+      <ClerkProvider
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+        signInFallbackRedirectUrl="/auth/continue"
+        signUpFallbackRedirectUrl="/auth/continue"
+      >
+        {content}
+      </ClerkProvider>
+    );
+  }
+
+  return content;
 }

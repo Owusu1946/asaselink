@@ -1,0 +1,2 @@
+export default function EstatesPage() { return <Empty title="No registered estates" description="Verified estate master plans will appear here." />; }
+function Empty({ title, description }: { title: string; description: string }) { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>; }

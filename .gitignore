@@ -7,6 +7,13 @@ node_modules
 dist
 build
 *.tsbuildinfo
+.open-next
+.next
+.clerk
+.wrangler
+apps/web/.open-next
+apps/web/.next
+apps/web/.clerk
 
 # Generated files
 apps/web/src/routeTree.gen.ts

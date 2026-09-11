@@ -1,0 +1,1 @@
+export default function PlotsPage() { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">No managed plots</h2><p className="mt-2 text-sm text-muted-foreground">Plot inventory appears after an estate master plan is registered.</p></div>; }

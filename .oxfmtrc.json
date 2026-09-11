@@ -1,3 +1,10 @@
 {
-  "ignorePatterns": []
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.open-next/**",
+    "**/.next/**",
+    "**/.clerk/**",
+    "**/dist/**",
+    "**/build/**"
+  ]
 }

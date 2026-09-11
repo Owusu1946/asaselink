@@ -1,0 +1,1 @@
+export default function StaffPage() { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">No additional staff</h2><p className="mt-2 text-sm text-muted-foreground">Invite trusted team members when staff management is enabled.</p></div>; }

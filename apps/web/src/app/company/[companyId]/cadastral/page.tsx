@@ -1,0 +1,1 @@
+export default function CadastralPage() { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">No cadastral records</h2><p className="mt-2 text-sm text-muted-foreground">Survey plans and boundary verification records will appear here.</p></div>; }

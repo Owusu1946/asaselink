@@ -16,8 +16,8 @@ function DashboardContent() {
     user.user?.primaryEmailAddress?.emailAddress ||
     user.user?.primaryPhoneNumber?.phoneNumber ||
     "User";
-  const privateData = useQuery({
-    ...orpc.privateData.queryOptions(),
+  const userQuery = useQuery({
+    ...orpc.auth.getCurrentUser.queryOptions(),
     enabled: user.isLoaded && !!user.user,
   });
 
@@ -37,7 +37,7 @@ function DashboardContent() {
     <div className="space-y-4 p-6">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
       <p>Welcome {displayName}</p>
-      <p>API: {privateData.data?.message}</p>
+      <p>Status: {userQuery.data?.user?.status || "Active"}</p>
       <UserButton />
     </div>
   );

@@ -6,8 +6,11 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   reactCompiler: true,
   poweredByHeader: false,
+  turbopack: {},
 };
 
 export default nextConfig;
 
-initOpenNextCloudflareForDev();
+if (process.env.ENABLE_CLOUDFLARE_DEV === "true") {
+  initOpenNextCloudflareForDev();
+}

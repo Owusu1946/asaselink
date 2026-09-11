@@ -1,56 +1,41 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
 
-import ApiProvider from "@/components/api-provider";
-import { orpc } from "@/utils/orpc";
+import { useState } from "react";
+import { LandingNav } from "@/components/home/landing-nav";
+import { HeroSection } from "@/components/home/hero-section";
+import { ExploreLandsSection } from "@/components/home/explore-lands-section";
+import { HowItWorksSection } from "@/components/home/how-it-works-section";
+import { CompanyBanner } from "@/components/home/company-banner";
+import { LandingFooter } from "@/components/home/landing-footer";
 
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
-
-function HomeContent() {
-  const healthCheck = useQuery(orpc.healthCheck.queryOptions());
+export default function HomePage() {
+  const [searchCriteria, setSearchCriteria] = useState<{
+    location: string;
+    type: string;
+    budget: string;
+  } | null>(null);
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">API Status</h2>
-          <div className="flex items-center gap-2">
-            <div
-              className={`h-2 w-2 rounded-full ${healthCheck.data ? "bg-green-500" : "bg-red-500"}`}
-            />
-            <span className="text-sm text-muted-foreground">
-              {healthCheck.isLoading
-                ? "Checking..."
-                : healthCheck.data
-                  ? "Connected"
-                  : "Disconnected"}
-            </span>
-          </div>
-        </section>
-      </div>
+    <div className="relative min-h-screen bg-background text-foreground selection:bg-brand-gold-200 dark:selection:bg-brand-gold-900">
+      {/* 1. Floating Capsule Navigation */}
+      <LandingNav />
+
+      <main>
+        {/* 2. Asymmetric Hero Section with Interactive Spatial Map & Search Bar */}
+        <HeroSection onSearchCriteriaChange={setSearchCriteria} />
+
+        {/* 3. Image-Driven "Explore Lands" Grid with Filters */}
+        <ExploreLandsSection filterCriteria={searchCriteria} />
+
+        {/* 4. The AsaseLink Standard / How It Works */}
+        <HowItWorksSection />
+
+        {/* 5. Company Acquisition Banner (Host equivalent) */}
+        <CompanyBanner />
+      </main>
+
+      {/* 6. Editorial Footer */}
+      <LandingFooter />
     </div>
-  );
-}
-
-export default function Home() {
-  return (
-    <ApiProvider>
-      <HomeContent />
-    </ApiProvider>
   );
 }

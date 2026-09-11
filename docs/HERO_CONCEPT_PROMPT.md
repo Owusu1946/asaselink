@@ -65,7 +65,7 @@ The primary hero CTA should use the same capsule curvature language as the nav's
 
 Under the actions, show a low-contrast trust line with text and thin separators, not decorative icons:
 
-`Verified land companies`  |  `Transparent plot status`  |  `Secure reservations`
+`Verified land companies` | `Transparent plot status` | `Secure reservations`
 
 Use sentence case throughout. Avoid all-caps eyebrows, fake statistics, and marketing jargon.
 

@@ -63,15 +63,7 @@ function getServerUrl(url: string) {
 export const link = new RPCLink({
   url: `${getServerUrl(env.NEXT_PUBLIC_SERVER_URL)}/rpc`,
   headers: async () => {
-    if (typeof window !== "undefined") {
-      const token = await getClerkAuthToken();
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    }
-
-    const { auth } = await import("@clerk/nextjs/server");
-    const clerkAuth = await auth();
-    const token = await clerkAuth.getToken();
-
+    const token = await getClerkAuthToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   },
 });
