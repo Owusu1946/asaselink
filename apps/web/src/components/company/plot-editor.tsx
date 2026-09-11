@@ -3,7 +3,6 @@
 import type mapboxgl from "mapbox-gl";
 import type MapboxDraw from "@mapbox/mapbox-gl-draw";
 import type { FeatureCollection, Geometry } from "geojson";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { env } from "@asaselink/env/web";
 import { Button } from "@asaselink/ui/components/button";
@@ -24,8 +23,13 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
   const drawRef = useRef<MapboxDraw | null>(null);
   const [points, setPoints] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [savedPlots, setSavedPlots] = useState(plots);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource("existing-plots") as mapboxgl.GeoJSONSource | undefined;
+    source?.setData({ type: "FeatureCollection", features: savedPlots.map((plot) => ({ type: "Feature", properties: { number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) });
+  }, [savedPlots]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -56,7 +60,7 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
       map.on("draw.update", syncDraft);
       map.on("draw.delete", syncDraft);
       map.on("load", () => {
-        const existing: FeatureCollection = { type: "FeatureCollection", features: plots.map((plot) => ({ type: "Feature", properties: { number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) };
+        const existing: FeatureCollection = { type: "FeatureCollection", features: savedPlots.map((plot) => ({ type: "Feature", properties: { number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) };
         map.addSource("estate", { type: "geojson", data: { type: "Feature", properties: {}, geometry: estateBoundary } });
         map.addLayer({ id: "estate-line", type: "line", source: "estate", paint: { "line-color": "#fff4c2", "line-width": 3, "line-dasharray": [2, 1] } });
         map.addSource("existing-plots", { type: "geojson", data: existing });
@@ -66,7 +70,7 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
       });
     }).catch(() => setError("The satellite editor could not load."));
     return () => { disposed = true; resizeObserver?.disconnect(); drawRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
-  }, [estateBoundary, plots]);
+  }, [estateBoundary]);
 
   function resetDraft() { drawRef.current?.deleteAll(); drawRef.current?.changeMode("draw_polygon"); setPoints([]); }
   function create(formData: FormData) {
@@ -74,8 +78,9 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
     setError(null);
     startTransition(async () => {
       try {
-        await client.land.createPlot({ estateId, plotNumber: String(formData.get("plotNumber") ?? ""), price: Number(formData.get("price")), reason: "Initial surveyed plot registration", boundary: { type: "Polygon", coordinates: [[...points, points[0]!]] } });
-        resetDraft(); router.refresh();
+        const created = await client.land.createPlot({ estateId, plotNumber: String(formData.get("plotNumber") ?? ""), price: Number(formData.get("price")), reason: "Initial surveyed plot registration", boundary: { type: "Polygon", coordinates: [[...points, points[0]!]] } });
+        setSavedPlots((current) => current.some((plot) => plot.id === created.id) ? current : [...current, created]);
+        resetDraft();
       } catch (cause) { setError(cause instanceof Error ? cause.message : "The plot could not be saved."); }
     });
   }

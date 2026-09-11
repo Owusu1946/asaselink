@@ -114,7 +114,7 @@ export const landRouter = {
       companyId: input.companyId, name: input.name, slug: input.slug, description: input.description,
       region: input.region, district: input.district, address: input.address,
       priceFrom: input.priceFrom?.toFixed(2), boundary: sql`ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326))`,
-    }).returning({ id: estates.id, name: estates.name, slug: estates.slug, status: estates.status });
+    }).returning({ id: estates.id, name: estates.name, slug: estates.slug, region: estates.region, district: estates.district, status: estates.status, priceFrom: estates.priceFrom });
     if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
     await Promise.all([
       db.insert(geometryVersions).values({ resourceType: "estate", resourceId: created.id, action: "created", afterGeometry: boundary, actorUserId: access.user.id, reason: input.reason }),
@@ -151,7 +151,7 @@ export const landRouter = {
       db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
     ]);
-    return created;
+    return { ...created, boundary: savedBoundary };
   }),
 
   submitEstate: protectedProcedure.input(z.object({ estateId: uuid })).handler(async ({ context, input }) => {
