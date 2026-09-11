@@ -23,6 +23,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let disposed = false;
+    let resizeObserver: ResizeObserver | undefined;
 
     void import("mapbox-gl").then(({ default: mapbox }) => {
       if (disposed || !containerRef.current) return;
@@ -35,6 +36,9 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
         attributionControl: false,
       });
       mapRef.current = map;
+      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver.observe(containerRef.current);
+      requestAnimationFrame(() => map.resize());
       map.addControl(new mapbox.NavigationControl({ showCompass: true }), "top-right");
       map.addControl(new mapbox.AttributionControl({ compact: true }), "bottom-right");
       map.on("load", () => {
@@ -50,11 +54,12 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
         setPoints(next);
         (map.getSource("draft-boundary") as mapboxgl.GeoJSONSource | undefined)?.setData(boundaryData(next));
       });
-      map.on("error", () => setMapError("Satellite map could not load. Check the token URL restrictions and try again."));
+      map.on("error", (event) => setMapError(event.error?.message || "Satellite map could not load. Check the token URL restrictions and try again."));
     }).catch(() => setMapError("Satellite map could not load."));
 
     return () => {
       disposed = true;
+      resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };

@@ -29,6 +29,7 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let disposed = false;
+    let resizeObserver: ResizeObserver | undefined;
     void import("mapbox-gl").then(({ default: mapbox }) => {
       if (disposed || !containerRef.current) return;
       mapbox.accessToken = env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
@@ -37,6 +38,9 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
       positions.forEach((position) => bounds.extend(position as [number, number]));
       const map = new mapbox.Map({ container: containerRef.current, style: "mapbox://styles/mapbox/satellite-streets-v12", bounds, fitBoundsOptions: { padding: 52, maxZoom: 19 }, attributionControl: false });
       mapRef.current = map;
+      resizeObserver = new ResizeObserver(() => map.resize());
+      resizeObserver.observe(containerRef.current);
+      requestAnimationFrame(() => map.resize());
       map.addControl(new mapbox.NavigationControl(), "top-right");
       map.addControl(new mapbox.AttributionControl({ compact: true }), "bottom-right");
       map.on("load", () => {
@@ -57,7 +61,7 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
         (map.getSource("draft") as mapboxgl.GeoJSONSource | undefined)?.setData(boundaryData(next));
       });
     }).catch(() => setError("The satellite editor could not load."));
-    return () => { disposed = true; mapRef.current?.remove(); mapRef.current = null; };
+    return () => { disposed = true; resizeObserver?.disconnect(); mapRef.current?.remove(); mapRef.current = null; };
   }, [estateBoundary, plots]);
 
   function setDraft(next: Position[]) { pointsRef.current = next; setPoints(next); (mapRef.current?.getSource("draft") as mapboxgl.GeoJSONSource | undefined)?.setData(boundaryData(next)); }
