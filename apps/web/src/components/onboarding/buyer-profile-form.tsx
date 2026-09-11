@@ -70,6 +70,7 @@ export function BuyerProfileForm() {
     setIsSubmitting(true);
     try {
       await orpc.auth.updateBuyerProfile.call({
+        email: user?.primaryEmailAddress?.emailAddress,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phoneNumber: normalizedPhone,

@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -25,8 +25,16 @@ export default async function AuthContinuePage({ searchParams }: ContinuePagePro
     : undefined;
 
   try {
+    const clerkUser = await currentUser();
     const client = await getServerApiClient();
-    const result = await client.auth.syncUser({ intent, returnUrl });
+    const result = await client.auth.syncUser({
+      intent,
+      returnUrl,
+      email: clerkUser?.primaryEmailAddress?.emailAddress,
+      firstName: clerkUser?.firstName ?? undefined,
+      lastName: clerkUser?.lastName ?? undefined,
+      phoneNumber: clerkUser?.primaryPhoneNumber?.phoneNumber,
+    });
     redirect(result.nextDestination);
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;
