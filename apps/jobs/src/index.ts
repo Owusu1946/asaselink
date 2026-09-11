@@ -30,9 +30,11 @@ export default {
 async function dispatch(env: Env) {
   const sql = neon(env.DATABASE_URL);
   const events = await sql`
-    UPDATE outbox_events SET status='processing', attempts=attempts+1
+    UPDATE outbox_events SET status='processing', attempts=attempts+1, available_at=now() + interval '5 minutes'
     WHERE id IN (
-      SELECT id FROM outbox_events WHERE status='pending' AND available_at <= now()
+      SELECT id FROM outbox_events
+      WHERE status='pending' AND available_at <= now()
+         OR status='processing' AND available_at <= now()
       ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED
     ) RETURNING id
   `;
@@ -41,7 +43,7 @@ async function dispatch(env: Env) {
     await env.EVENTS.sendBatch(events.map((event) => ({ body: { eventId: String(event.id) } })));
   } catch (error) {
     const ids = events.map((event) => String(event.id));
-    await sql`UPDATE outbox_events SET status='pending', last_error=${error instanceof Error ? error.message.slice(0, 1000) : "Queue dispatch failed"} WHERE id = ANY(${ids})`;
+    await sql`UPDATE outbox_events SET status='pending', available_at=now(), last_error=${error instanceof Error ? error.message.slice(0, 1000) : "Queue dispatch failed"} WHERE id = ANY(${ids}::uuid[])`;
     throw error;
   }
 }
