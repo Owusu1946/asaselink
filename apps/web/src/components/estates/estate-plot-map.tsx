@@ -23,7 +23,16 @@ function allCoordinates(geometry: Geometry): number[][] {
 export function EstatePlotMap({ estateBoundary, plots, onSelect }: { estateBoundary: Geometry; plots: PublicPlot[]; onSelect: (plot: PublicPlot) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const plotsRef = useRef(plots);
+  const onSelectRef = useRef(onSelect);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    plotsRef.current = plots;
+    onSelectRef.current = onSelect;
+    const source = mapRef.current?.getSource("plots") as mapboxgl.GeoJSONSource | undefined;
+    source?.setData({ type: "FeatureCollection", features: plots.map((plot) => ({ type: "Feature", id: plot.id, properties: { id: plot.id, number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) });
+  }, [onSelect, plots]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -52,14 +61,14 @@ export function EstatePlotMap({ estateBoundary, plots, onSelect }: { estateBound
         map.on("mouseleave", "plots-fill", () => { map.getCanvas().style.cursor = ""; });
         map.on("click", "plots-fill", (event) => {
           const id = event.features?.[0]?.properties?.id;
-          const plot = plots.find((item) => item.id === id);
-          if (plot) onSelect(plot);
+          const plot = plotsRef.current.find((item) => item.id === id);
+          if (plot) onSelectRef.current(plot);
         });
       });
       map.on("error", () => setError(true));
     }).catch(() => setError(true));
     return () => { disposed = true; resizeObserver?.disconnect(); mapRef.current?.remove(); mapRef.current = null; };
-  }, [estateBoundary, onSelect, plots]);
+  }, [estateBoundary]);
 
   return <div className="relative min-h-[26rem] overflow-hidden rounded-2xl bg-[#17211d] lg:min-h-[40rem]"><div ref={containerRef} className="absolute inset-0 h-full w-full" style={{ width: "100%", height: "100%" }} aria-label="Satellite map of available estate plots" />{error ? <p role="alert" className="absolute left-4 right-4 top-4 rounded-xl bg-black/80 p-3 text-sm text-white">The map could not load. Plot details remain available in the list.</p> : null}<div className="pointer-events-none absolute bottom-4 left-4 flex gap-2 rounded-full bg-black/75 px-3 py-2 text-xs text-white backdrop-blur"><span>Green: available</span><span>Gold: reserved</span><span>Grey: sold</span></div></div>;
 }
