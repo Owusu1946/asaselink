@@ -116,7 +116,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
           <Button type="submit" disabled={points.length < 3 || isPending} className="h-12 w-full rounded-xl">{isPending ? "Validating boundary…" : "Validate and register estate"}</Button>
         </form>
         <div className="relative order-1 min-h-[22rem] bg-[#17211d] lg:order-2 lg:min-h-[38rem]">
-          <div ref={containerRef} className="absolute inset-0" aria-label="Satellite map boundary editor" />
+          <div ref={containerRef} className="absolute inset-0 h-full w-full" style={{ width: "100%", height: "100%" }} aria-label="Satellite map boundary editor" />
           {!mapReady && !mapError ? <div className="absolute inset-0 grid place-items-center text-sm text-white/80">Loading satellite imagery…</div> : null}
           {mapError ? <div role="alert" className="absolute inset-x-4 top-4 rounded-xl border border-red-300/40 bg-black/80 p-3 text-sm text-white backdrop-blur">{mapError}</div> : null}
           <div className="pointer-events-none absolute bottom-5 left-5 rounded-full border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">Click corners clockwise · server validation on save</div>
