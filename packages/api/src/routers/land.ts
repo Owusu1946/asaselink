@@ -5,7 +5,7 @@ import { db } from "@asaselink/db";
 import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
-import { requireCompanyWriteAccess } from "../security/company-access";
+import { requireCompanyAccess, requireCompanyWriteAccess } from "../security/company-access";
 
 const uuid = z.string().uuid();
 
@@ -13,9 +13,49 @@ export const landRouter = {
   listCompanyEstates: protectedProcedure.input(z.object({ companyId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    await requireCompanyWriteAccess(clerkId, input.companyId);
+    await requireCompanyAccess(clerkId, input.companyId);
     return db.select({ id: estates.id, name: estates.name, slug: estates.slug, region: estates.region, district: estates.district, status: estates.status, priceFrom: estates.priceFrom, updatedAt: estates.updatedAt })
       .from(estates).where(eq(estates.companyId, input.companyId));
+  }),
+
+  listEstatePlots: protectedProcedure.input(z.object({ estateId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    await requireCompanyAccess(clerkId, estate.companyId);
+    return db.select({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price, updatedAt: plots.updatedAt })
+      .from(plots).where(eq(plots.estateId, input.estateId));
+  }),
+
+  listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
+    const result = await db.execute(sql`
+      SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
+        c.legal_name AS "companyName",
+        count(p.id) FILTER (WHERE p.status = 'AVAILABLE')::int AS "availablePlots"
+      FROM estates e
+      JOIN companies c ON c.id = e.company_id
+      LEFT JOIN plots p ON p.estate_id = e.id
+      WHERE e.status = 'approved' AND c.status = 'approved'
+      GROUP BY e.id, c.legal_name
+      ORDER BY e.created_at DESC
+      LIMIT ${input?.limit ?? 24} OFFSET ${input?.offset ?? 0}
+    `);
+    return result.rows;
+  }),
+
+  getPublished: publicProcedure.input(z.object({ slug: z.string().min(2).max(256) })).handler(async ({ input }) => {
+    const rows = await db.execute(sql`
+      SELECT e.id, e.name, e.slug, e.description, e.region, e.district, e.address,
+        e.price_from AS "priceFrom", c.id AS "companyId", c.legal_name AS "companyName",
+        ST_AsGeoJSON(e.boundary)::json AS boundary
+      FROM estates e JOIN companies c ON c.id = e.company_id
+      WHERE e.slug = ${input.slug} AND e.status = 'approved' AND c.status = 'approved'
+      LIMIT 1
+    `);
+    const estate = rows.rows[0];
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    return estate;
   }),
 
   createEstate: protectedProcedure.input(z.object({
@@ -78,6 +118,6 @@ export const landRouter = {
       ORDER BY e.name
       LIMIT 200
     `);
-    return rows;
+    return rows.rows;
   }),
 };
