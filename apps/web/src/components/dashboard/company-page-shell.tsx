@@ -10,6 +10,26 @@ import { buttonVariants } from "@asaselink/ui/components/button";
 import { orpc } from "@/utils/orpc";
 import { cn } from "@asaselink/ui/lib/utils";
 
+export interface CompanyWorkspaceSummary {
+  company: { id: string; legalName: string; status: string };
+  counts: { estateCount: number; availablePlotCount: number; activeStaffCount: number };
+  recentEstates: Array<{ id: string; name: string; status: string; plotCount: number; updatedAt: Date }>;
+}
+
+interface CompanyWorkspaceContextValue {
+  companyId: string;
+  summary: CompanyWorkspaceSummary | null;
+  loading: boolean;
+}
+
+const CompanyWorkspaceContext = React.createContext<CompanyWorkspaceContextValue | null>(null);
+
+export function useCompanyWorkspace() {
+  const value = React.useContext(CompanyWorkspaceContext);
+  if (!value) throw new Error("useCompanyWorkspace must be used inside CompanyWorkspaceShell");
+  return value;
+}
+
 const META: Record<string, { title: string; description: string }> = {
   overview: { title: "Company overview", description: "Verification status, estate inventory, and operational activity." },
   estates: { title: "Registered Estates", description: "Verified master plans and estate layouts managed by your company." },
@@ -18,22 +38,30 @@ const META: Record<string, { title: string; description: string }> = {
   staff: { title: "Company Staff", description: "Workspace members, roles, and access." },
 };
 
-export function CompanyWorkspaceShell({ children }: { children: React.ReactNode }) {
+export function CompanyWorkspaceShell({ children, initialSummary }: { children: React.ReactNode; initialSummary: CompanyWorkspaceSummary | null }) {
   const params = useParams<{ companyId: string }>();
   const pathname = usePathname();
   const companyId = params.companyId;
   const section = pathname.split("/").at(-1) ?? "overview";
   const meta = META[section] ?? META.overview!;
-  const [company, setCompany] = React.useState<{ legalName: string; status: string } | null>(null);
+  const [summary, setSummary] = React.useState<CompanyWorkspaceSummary | null>(initialSummary);
+  const [loading, setLoading] = React.useState(!initialSummary);
+  const lastLoadedPath = React.useRef(initialSummary ? pathname : "");
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
-    orpc.company.getApplication.call().then((data) => setCompany(data?.company ?? null)).catch(() => setCompany(null));
-  }, []);
+    if (lastLoadedPath.current === pathname) return;
+    lastLoadedPath.current = pathname;
+    setLoading(true);
+    orpc.company.getWorkspaceSummary.call({ companyId })
+      .then((data) => setSummary(data as CompanyWorkspaceSummary))
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [companyId, pathname]);
 
-  return <div className="flex min-h-svh bg-background text-foreground">
-    <CompanySidebar companyName={company?.legalName ?? "Company workspace"} companyId={companyId} isVerified={company?.status === "approved"} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
+  return <CompanyWorkspaceContext.Provider value={{ companyId, summary, loading }}><div className="flex min-h-svh bg-background text-foreground">
+    <CompanySidebar companyName={summary?.company.legalName ?? "Company workspace"} companyId={companyId} isVerified={summary?.company.status === "approved"} counts={summary?.counts} recentEstates={summary?.recentEstates ?? []} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} mobileOpen={mobileSidebarOpen} onCloseMobile={() => setMobileSidebarOpen(false)} />
     <div className={cn("flex min-w-0 flex-1 flex-col transition-[padding] duration-300", sidebarCollapsed ? "lg:pl-[68px]" : "lg:pl-[260px]")}>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-8">
         <div className="flex items-center gap-3"><button type="button" onClick={() => window.innerWidth < 1024 ? setMobileSidebarOpen(true) : setSidebarCollapsed((value) => !value)} className="grid size-8 place-items-center rounded-lg hover:bg-muted" aria-label="Toggle sidebar"><HugeiconsIcon icon={SidebarRight01Icon} size={18} /></button><span className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Company</span> / {meta.title}</span></div>
@@ -42,5 +70,5 @@ export function CompanyWorkspaceShell({ children }: { children: React.ReactNode 
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-8 p-6 sm:p-10"><div className="border-b border-border pb-6"><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{meta.title}</h1><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div>{children}</main>
     </div>
-  </div>;
+  </div></CompanyWorkspaceContext.Provider>;
 }

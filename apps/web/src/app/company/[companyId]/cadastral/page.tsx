@@ -1,1 +1,9 @@
-export default function CadastralPage() { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">No cadastral records</h2><p className="mt-2 text-sm text-muted-foreground">Survey plans and boundary verification records will appear here.</p></div>; }
+import { CadastralRecords, type CadastralRecord } from "@/components/company/cadastral-records";
+import { getServerApiClient } from "@/utils/server-orpc";
+
+export default async function CadastralPage({ params, searchParams }: { params: Promise<{ companyId: string }>; searchParams: Promise<{ estate?: string }> }) {
+  const [{ companyId }, query] = await Promise.all([params, searchParams]);
+  const api = await getServerApiClient();
+  const [estates, records] = await Promise.all([api.land.listCompanyEstates({ companyId }), api.land.listCadastralRecords({ companyId, estateId: query.estate })]);
+  return <CadastralRecords companyId={companyId} selectedEstateId={query.estate} estates={estates} records={records as unknown as CadastralRecord[]} />;
+}

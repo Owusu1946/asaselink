@@ -2,6 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@asaselink/db";
 import { companies, companyMembers, users } from "@asaselink/db/schema";
+import { hasCompanyPermission, type CompanyPermission } from "../domain/company-team";
 
 const WRITE_ROLES = new Set(["owner", "admin", "manager"]);
 
@@ -21,4 +22,10 @@ export async function requireCompanyAccess(clerkId: string, companyId: string, w
 
 export function requireCompanyWriteAccess(clerkId: string, companyId: string) {
   return requireCompanyAccess(clerkId, companyId, true);
+}
+
+export async function requireCompanyPermission(clerkId: string, companyId: string, permission: CompanyPermission) {
+  const access = await requireCompanyAccess(clerkId, companyId);
+  if (!hasCompanyPermission(access.member.role, permission)) throw new ORPCError("FORBIDDEN", { message: "Your company role does not allow this action." });
+  return access;
 }

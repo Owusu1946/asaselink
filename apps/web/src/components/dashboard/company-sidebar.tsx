@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -25,6 +25,8 @@ import {
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@asaselink/ui/lib/utils";
+import { client } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 interface CompanySidebarProps {
   companyName: string;
@@ -35,34 +37,9 @@ interface CompanySidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   onRegisterEstateClick?: () => void;
+  counts?: { estateCount: number; availablePlotCount: number; activeStaffCount: number };
+  recentEstates: Array<{ id: string; name: string; status: string; plotCount: number }>;
 }
-
-const RECENT_ESTATES = [
-  {
-    id: "1",
-    name: "Asase Hills Masterplan — Phase 1",
-    plots: "48 plots",
-    status: "Verified",
-  },
-  {
-    id: "2",
-    name: "Airport Hills Executive Extension",
-    plots: "12 plots",
-    status: "Verified",
-  },
-  {
-    id: "3",
-    name: "Prampram Beachfront Layout",
-    plots: "24 plots",
-    status: "In Review",
-  },
-  {
-    id: "4",
-    name: "Aburi Scenic Ridge Parcels",
-    plots: "16 plots",
-    status: "Draft",
-  },
-];
 
 export function CompanySidebar({
   companyName,
@@ -73,13 +50,17 @@ export function CompanySidebar({
   mobileOpen,
   onCloseMobile,
   onRegisterEstateClick,
+  counts,
+  recentEstates,
 }: CompanySidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
 
   const [searchFilter, setSearchFilter] = React.useState("");
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [activeItemMenu, setActiveItemMenu] = React.useState<string | null>(null);
+  const [exportingEstate, setExportingEstate] = React.useState<string | null>(null);
 
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -102,9 +83,29 @@ export function CompanySidebar({
     .join("")
     .toUpperCase();
 
-  const filteredEstates = RECENT_ESTATES.filter((item) =>
+  const filteredEstates = recentEstates.filter((item) =>
     item.name.toLowerCase().includes(searchFilter.toLowerCase()),
   );
+
+  async function exportPlotList(estate: CompanySidebarProps["recentEstates"][number]) {
+    setActiveItemMenu(null);
+    setExportingEstate(estate.id);
+    try {
+      const plots = await client.land.listEstatePlots({ estateId: estate.id });
+      const quote = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+      const csv = [["Plot number", "Status", "Area (sqm)", "Price (GHS)", "Last updated"], ...plots.map((plot) => [plot.plotNumber, plot.status, plot.areaSquareMeters, plot.price, plot.updatedAt])]
+        .map((row) => row.map(quote).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${estate.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "estate"}-plots.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      notify.success(plots.length ? `Exported ${plots.length} plot${plots.length === 1 ? "" : "s"}.` : "Exported an empty plot register.");
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "The plot register could not be exported.");
+    } finally { setExportingEstate(null); }
+  }
 
   const navLinks = [
     {
@@ -117,28 +118,28 @@ export function CompanySidebar({
       href: `/company/${companyId}/estates`,
       label: "Registered Estates",
       icon: Building02Icon,
-      badge: "0",
+      badge: String(counts?.estateCount ?? 0),
       active: pathname === `/company/${companyId}/estates`,
     },
     {
       href: `/company/${companyId}/plots`,
       label: "Managed Plots",
       icon: Location01Icon,
-      badge: "0",
+      badge: String(counts?.availablePlotCount ?? 0),
       active: pathname === `/company/${companyId}/plots`,
     },
     {
       href: `/company/${companyId}/cadastral`,
       label: "Cadastral Survey Records",
       icon: FileValidationIcon,
-      badge: "1",
+      badge: undefined,
       active: pathname === `/company/${companyId}/cadastral`,
     },
     {
       href: `/company/${companyId}/staff`,
       label: "Company Staff",
       icon: UserGroupIcon,
-      badge: "3",
+      badge: String(counts?.activeStaffCount ?? 0),
       active: pathname === `/company/${companyId}/staff`,
     },
     {
@@ -184,8 +185,8 @@ export function CompanySidebar({
 
         {/* Action Button: "+ Register Estate" (ChatGPT "+ New chat" inspired) */}
         <div className="p-3">
-          <button
-            type="button"
+          <Link
+            href={`/company/${companyId}/estates`}
             onClick={onRegisterEstateClick}
             className={cn(
               "group flex w-full items-center justify-between rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#212121] px-3 py-2 text-xs font-medium text-foreground shadow-2xs hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all text-left",
@@ -204,7 +205,7 @@ export function CompanySidebar({
                 ⌘E
               </span>
             )}
-          </button>
+          </Link>
         </div>
 
         {/* Middle Navigation & Estate Records (No visible scrollbar) */}
@@ -272,21 +273,21 @@ export function CompanySidebar({
                     <div
                       key={item.id}
                       className="group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-foreground cursor-pointer transition-colors"
-                      onClick={() => onRegisterEstateClick?.()}
+                      onClick={() => router.push(`/company/${companyId}/estates/${item.id}`)}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <span className="truncate text-xs font-medium">{item.name}</span>
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <span>{item.plots}</span>
+                          <span>{item.plotCount} plot{item.plotCount === 1 ? "" : "s"}</span>
                           <span>·</span>
                           <span
                             className={cn(
-                              item.status === "Verified"
+                              item.status === "approved"
                                 ? "text-brand-green-800 dark:text-brand-green-400"
                                 : "text-amber-600 dark:text-amber-400",
                             )}
                           >
-                            {item.status}
+                            {item.status.replace("_", " ")}
                           </span>
                         </div>
                       </div>
@@ -314,25 +315,26 @@ export function CompanySidebar({
                         >
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            onClick={() => { setActiveItemMenu(null); router.push(`/company/${companyId}/cadastral?estate=${item.id}`); }}
                             className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
                           >
                             View cadastral map
                           </button>
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            disabled={exportingEstate === item.id}
+                            onClick={() => void exportPlotList(item)}
                             className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
                           >
-                            Export plot list
+                            {exportingEstate === item.id ? "Preparing export…" : "Export plot list"}
                           </button>
                           <div className="my-1 border-t border-border" />
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            onClick={() => { setActiveItemMenu(null); router.push(`/company/${companyId}/estates/${item.id}`); }}
                             className="w-full rounded-md px-2 py-1.5 text-left text-muted-foreground hover:bg-muted transition-colors"
                           >
-                            Archive layout
+                            Open estate workspace
                           </button>
                         </div>
                       )}

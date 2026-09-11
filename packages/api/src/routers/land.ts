@@ -6,7 +6,7 @@ import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schem
 import { protectedProcedure, publicProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
-import { requireCompanyAccess, requireCompanyWriteAccess } from "../security/company-access";
+import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
 
 const uuid = z.string().uuid();
 
@@ -35,6 +35,31 @@ export const landRouter = {
     await requireCompanyAccess(clerkId, input.companyId);
     return db.select({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price, estateId: estates.id, estateName: estates.name, updatedAt: plots.updatedAt })
       .from(plots).innerJoin(estates, eq(plots.estateId, estates.id)).where(eq(estates.companyId, input.companyId));
+  }),
+
+  listCadastralRecords: protectedProcedure.input(z.object({ companyId: uuid, estateId: uuid.optional() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireCompanyAccess(clerkId, input.companyId);
+    const selectedEstateId = input.estateId ?? null;
+    const result = await db.execute(sql`
+      SELECT gv.id, gv.resource_type AS "resourceType", gv.resource_id AS "resourceId",
+        gv.action, gv.reason, gv.approval_state AS "approvalState", gv.created_at AS "createdAt",
+        gv.after_geometry AS geometry,
+        COALESCE(direct_estate.id, plot_estate.id) AS "estateId",
+        COALESCE(direct_estate.name, plot_estate.name) AS "estateName",
+        p.plot_number AS "plotNumber",
+        COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Workspace member') AS actor
+      FROM geometry_versions gv
+      LEFT JOIN estates direct_estate ON gv.resource_type = 'estate' AND direct_estate.id = gv.resource_id
+      LEFT JOIN plots p ON gv.resource_type = 'plot' AND p.id = gv.resource_id
+      LEFT JOIN estates plot_estate ON plot_estate.id = p.estate_id
+      LEFT JOIN users u ON u.id = gv.actor_user_id
+      WHERE COALESCE(direct_estate.company_id, plot_estate.company_id) = ${input.companyId}
+        AND (${selectedEstateId}::uuid IS NULL OR COALESCE(direct_estate.id, plot_estate.id) = ${selectedEstateId})
+      ORDER BY gv.created_at DESC LIMIT 250
+    `);
+    return result.rows;
   }),
 
   getEstateWorkspace: protectedProcedure.input(z.object({ companyId: uuid, estateId: uuid })).handler(async ({ context, input }) => {
@@ -109,7 +134,7 @@ export const landRouter = {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     await enforceRateLimit(clerkId, "estate.create", 12);
-    const access = await requireCompanyWriteAccess(clerkId, input.companyId);
+    const access = await requireCompanyPermission(clerkId, input.companyId, "estate:write");
     const boundary = asMultiPolygon(input.boundary);
     const boundaryJson = JSON.stringify(boundary);
     const [created] = await db.insert(estates).values({
@@ -134,7 +159,7 @@ export const landRouter = {
     await enforceRateLimit(clerkId, "plot.create", 60);
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
-    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const access = await requireCompanyPermission(clerkId, estate.companyId, "plot:write");
     const boundaryJson = JSON.stringify(input.boundary);
     let created: { id: string; plotNumber: string; status: string; areaSquareMeters: string; price: string } | undefined;
     try {
@@ -162,7 +187,7 @@ export const landRouter = {
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
-    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const access = await requireCompanyPermission(clerkId, estate.companyId, "plot:write");
     const result = await db.execute(sql`
       UPDATE estates SET status = 'submitted', updated_at = now()
       WHERE id = ${input.estateId} AND status IN ('draft','rejected')

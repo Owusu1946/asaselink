@@ -10,7 +10,7 @@ import { client } from "@/utils/orpc";
 import type { Position } from "./estate-boundary";
 import { notify } from "@/utils/notify";
 
-interface ExistingPlot { id: string; plotNumber: string; status: string; price: string; areaSquareMeters: string; boundary: Geometry }
+export interface ExistingPlot { id: string; plotNumber: string; status: string; price: string; areaSquareMeters: string; boundary: Geometry }
 
 function coordinates(geometry: Geometry): number[][] {
   if (geometry.type === "Polygon") return geometry.coordinates.flat(1);
@@ -18,7 +18,7 @@ function coordinates(geometry: Geometry): number[][] {
   return [];
 }
 
-export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: string; estateBoundary: Geometry; plots: ExistingPlot[] }) {
+export function PlotEditor({ estateId, estateBoundary, plots, onPlotCreated }: { estateId: string; estateBoundary: Geometry; plots: ExistingPlot[]; onPlotCreated?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
@@ -81,6 +81,7 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
       try {
         const created = await client.land.createPlot({ estateId, plotNumber: String(formData.get("plotNumber") ?? ""), price: Number(formData.get("price")), reason: "Initial surveyed plot registration", boundary: { type: "Polygon", coordinates: [[...points, points[0]!]] } });
         setSavedPlots((current) => current.some((plot) => plot.id === created.id) ? current : [...current, created]);
+        onPlotCreated?.();
         notify.success("Plot added", { description: `Plot ${created.plotNumber} is now mapped.` });
         resetDraft();
       } catch (cause) { setError(cause instanceof Error ? cause.message : "The plot could not be saved."); notify.apiError(cause, "Plot could not be added"); }

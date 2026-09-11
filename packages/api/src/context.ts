@@ -22,6 +22,11 @@ const clerkClient =
       })
     : null;
 
+export function requireClerkClient() {
+  if (!clerkClient) throw new Error("Clerk server credentials are not configured");
+  return clerkClient;
+}
+
 async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth | null> {
   if (!clerkClient) return null;
 

@@ -9,7 +9,8 @@ import {
   companyMembers,
   auditLogs,
 } from "@asaselink/db/schema";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { requireCompanyAccess } from "../security/company-access";
 import { protectedProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { companyDocumentKey, createDocumentUploadUrl, createDocumentViewUrl, deleteDocumentObject, DOCUMENT_MIME_TYPES, MAX_DOCUMENT_BYTES, verifyDocumentObject } from "../storage/r2";
@@ -18,6 +19,41 @@ const documentType = z.enum(["certificate_of_incorporation", "commencement_certi
 const requiredDocumentTypes = new Set(["certificate_of_incorporation", "commencement_certificate", "representative_id"]);
 
 export const companyRouter = {
+  getWorkspaceSummary: protectedProcedure
+    .input(z.object({ companyId: z.string().uuid() }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const access = await requireCompanyAccess(clerkId, input.companyId);
+
+      const [metrics, recentEstates] = await Promise.all([
+        db.execute(sql`
+          SELECT
+            (SELECT count(*)::int FROM estates WHERE company_id = ${input.companyId}) AS "estateCount",
+            (SELECT count(*)::int FROM plots p JOIN estates e ON e.id = p.estate_id
+              WHERE e.company_id = ${input.companyId} AND p.status = 'AVAILABLE') AS "availablePlotCount",
+            (SELECT count(*)::int FROM company_members
+              WHERE company_id = ${input.companyId} AND status = 'active') AS "activeStaffCount"
+        `),
+        db.execute(sql`
+          SELECT e.id, e.name, e.status, e.updated_at AS "updatedAt", count(p.id)::int AS "plotCount"
+          FROM estates e
+          LEFT JOIN plots p ON p.estate_id = e.id
+          WHERE e.company_id = ${input.companyId}
+          GROUP BY e.id
+          ORDER BY e.updated_at DESC
+          LIMIT 8
+        `),
+      ]);
+
+      const counts = metrics.rows[0] as { estateCount: number; availablePlotCount: number; activeStaffCount: number };
+      return {
+        company: { id: access.company.id, legalName: access.company.legalName, status: access.company.status },
+        counts,
+        recentEstates: recentEstates.rows as unknown as Array<{ id: string; name: string; status: string; plotCount: number; updatedAt: Date }>,
+      };
+    }),
+
   getApplication: protectedProcedure.handler(async ({ context }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
