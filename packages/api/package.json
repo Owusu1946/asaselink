@@ -9,7 +9,10 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
+  },
   "dependencies": {
     "@asaselink/db": "workspace:*",
     "@asaselink/env": "workspace:*",
@@ -25,6 +28,7 @@
   "devDependencies": {
     "@asaselink/config": "workspace:*",
     "hono": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.1.11"
   }
 }

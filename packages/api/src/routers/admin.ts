@@ -8,10 +8,36 @@ import {
   companyDocuments,
   auditLogs,
 } from "@asaselink/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { protectedProcedure } from "../index";
 
 export const adminRouter = {
+  getEstateQueue: protectedProcedure.handler(async ({ context }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const result = await db.execute(sql`
+      SELECT e.id, e.name, e.slug, e.region, e.district, e.status, e.updated_at AS "updatedAt",
+        c.legal_name AS "companyName", count(p.id)::int AS "plotCount"
+      FROM estates e JOIN companies c ON c.id=e.company_id LEFT JOIN plots p ON p.estate_id=e.id
+      WHERE e.status IN ('submitted','approved','rejected')
+      GROUP BY e.id, c.legal_name ORDER BY e.updated_at DESC LIMIT 100
+    `);
+    return result.rows;
+  }),
+
+  reviewEstate: protectedProcedure.input(z.object({ estateId: z.string().uuid(), decision: z.enum(["approved", "rejected"]), reason: z.string().trim().min(5).max(1000) })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const updated = await db.execute(sql`UPDATE estates SET status=${input.decision}, updated_at=now() WHERE id=${input.estateId} AND status='submitted' RETURNING id, status`);
+    if (!updated.rows[0]) throw new ORPCError("CONFLICT", { message: "This estate is not awaiting review." });
+    await db.insert(auditLogs).values({ userId: user.id, action: `estate.${input.decision}`, entityType: "estate", entityId: input.estateId, reason: input.reason });
+    return updated.rows[0];
+  }),
+
   getVerificationQueue: protectedProcedure.handler(async ({ context }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");

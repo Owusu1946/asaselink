@@ -1,2 +1,17 @@
-export default function EstatesPage() { return <Empty title="No registered estates" description="Verified estate master plans will appear here." />; }
-function Empty({ title, description }: { title: string; description: string }) { return <div className="rounded-2xl border border-dashed border-border p-12 text-center"><h2 className="font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>; }
+import { getServerApiClient } from "@/utils/server-orpc";
+import { connection } from "next/server";
+import { EstateRegistry } from "@/components/company/estate-registry";
+
+export default async function EstatesPage({ params }: { params: Promise<{ companyId: string }> }) {
+  const { companyId } = await params;
+  await connection();
+
+  try {
+    const client = await getServerApiClient();
+    const estates = await client.land.listCompanyEstates({ companyId });
+
+    return <EstateRegistry companyId={companyId} initialEstates={estates} />;
+  } catch {
+    return <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-sm text-destructive">Estate inventory could not be loaded. Confirm your company is approved and try again.</div>;
+  }
+}

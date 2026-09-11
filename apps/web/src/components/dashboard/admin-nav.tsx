@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
-import { ShieldCheck, Layers, ClipboardCheck } from "lucide-react";
+import { ShieldCheck, Layers, ClipboardCheck, Map } from "lucide-react";
 
 export function AdminNav() {
   const pathname = usePathname();
@@ -31,6 +31,13 @@ export function AdminNav() {
 
         {/* Tab Navigation */}
         <nav aria-label="Admin navigation" className="hidden md:flex items-center gap-5 text-sm">
+          <Link
+            href="/admin/estates"
+            className={`inline-flex items-center gap-1.5 font-medium transition-colors ${pathname === "/admin/estates" ? "font-semibold text-brand-green-900 dark:text-brand-green-400" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Map className="size-3.5" />
+            <span>Estate Queue</span>
+          </Link>
           <Link
             href="/admin"
             className={`inline-flex items-center gap-1.5 font-medium transition-colors ${
