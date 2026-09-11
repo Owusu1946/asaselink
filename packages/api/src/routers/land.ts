@@ -143,6 +143,23 @@ export const landRouter = {
     return created;
   }),
 
+  submitEstate: protectedProcedure.input(z.object({ estateId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const result = await db.execute(sql`
+      UPDATE estates SET status = 'submitted', updated_at = now()
+      WHERE id = ${input.estateId} AND status IN ('draft','rejected')
+        AND EXISTS (SELECT 1 FROM plots WHERE estate_id = ${input.estateId})
+      RETURNING id, status
+    `);
+    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Add at least one plot before submitting this estate." });
+    await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.submitted", entityType: "estate", entityId: input.estateId, reason: "Submitted for marketplace review", metadata: { companyId: estate.companyId } });
+    return result.rows[0];
+  }),
+
   viewport: publicProcedure.input(z.object({ west: z.number().min(-180).max(180), south: z.number().min(-90).max(90), east: z.number().min(-180).max(180), north: z.number().min(-90).max(90) }).refine((b) => b.west < b.east && b.south < b.north && b.east - b.west <= 5 && b.north - b.south <= 5, "Viewport bounds are invalid or too large.")).handler(async ({ input }) => {
     const rows = await db.execute(sql`
       SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
