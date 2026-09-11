@@ -9,7 +9,7 @@ import { client } from "@/utils/orpc";
 import { boundaryData, EMPTY_COLLECTION, type Position } from "./estate-boundary";
 import { PlaceAutocomplete, type PlaceSelection } from "./place-autocomplete";
 
-export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
+export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: string; onCreated?: (estate: { id: string; name: string; slug: string; status: string }) => void }) {
   const mapId = useId().replaceAll(":", "");
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -89,7 +89,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
     const ring = [...points, points[0]!] as Position[];
     startTransition(async () => {
       try {
-        await client.land.createEstate({
+        const created = await client.land.createEstate({
           companyId,
           name: String(formData.get("name") ?? ""),
           slug: String(formData.get("slug") ?? ""),
@@ -100,6 +100,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
           boundary: { type: "Polygon", coordinates: [ring] },
           address: String(formData.get("address") ?? "") || undefined,
         });
+        onCreated?.(created);
         updatePoints([]);
         router.refresh();
       } catch (error) {

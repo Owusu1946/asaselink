@@ -28,6 +28,14 @@ export const landRouter = {
       .from(plots).where(eq(plots.estateId, input.estateId));
   }),
 
+  listCompanyPlots: protectedProcedure.input(z.object({ companyId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireCompanyAccess(clerkId, input.companyId);
+    return db.select({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price, estateId: estates.id, estateName: estates.name, updatedAt: plots.updatedAt })
+      .from(plots).innerJoin(estates, eq(plots.estateId, estates.id)).where(eq(estates.companyId, input.companyId));
+  }),
+
   getEstateWorkspace: protectedProcedure.input(z.object({ companyId: uuid, estateId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
