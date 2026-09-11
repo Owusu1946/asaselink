@@ -18,6 +18,7 @@
     "cf:login": "pnpm --filter web exec wrangler login",
     "cf:whoami": "pnpm --filter web exec wrangler whoami",
     "cf:deploy": "pnpm --filter web exec wrangler deploy",
+    "cf:deploy:api": "pnpm --dir apps/jobs exec wrangler deploy --config ../server/wrangler.jsonc",
     "db:push": "turbo run db:push -F @asaselink/db --",
     "db:studio": "turbo run db:studio -F @asaselink/db --",
     "db:generate": "turbo run db:generate -F @asaselink/db --",

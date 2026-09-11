@@ -7,7 +7,9 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.mjs"
+    "start": "node dist/index.mjs",
+    "deploy": "pnpm --dir ../jobs exec wrangler deploy --config ../server/wrangler.jsonc",
+    "cf:dev": "pnpm --dir ../jobs exec wrangler dev --config ../server/wrangler.jsonc"
   },
   "dependencies": {
     "@asaselink/api": "workspace:*",
