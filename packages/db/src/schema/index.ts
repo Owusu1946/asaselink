@@ -10,3 +10,4 @@ export * from "./estates";
 export * from "./plots";
 export * from "./restricted-areas";
 export * from "./geometry-versions";
+export * from "./reservations";
