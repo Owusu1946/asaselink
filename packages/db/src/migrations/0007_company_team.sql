@@ -21,3 +21,13 @@ CREATE TABLE IF NOT EXISTS "company_invitations" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "company_invitations_clerk_id_unique" ON "company_invitations" ("clerk_invitation_id");
 CREATE INDEX IF NOT EXISTS "company_invitations_company_status_idx" ON "company_invitations" ("company_id", "status");
+
+CREATE TABLE IF NOT EXISTS "webhook_events" (
+  "id" varchar(256) PRIMARY KEY NOT NULL,
+  "provider" varchar(32) NOT NULL,
+  "event_type" varchar(128) NOT NULL,
+  "status" varchar(32) DEFAULT 'processing' NOT NULL,
+  "payload" jsonb,
+  "processed_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now() NOT NULL
+);

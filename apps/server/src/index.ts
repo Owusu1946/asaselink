@@ -8,8 +8,11 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { handleClerkWebhook } from "@asaselink/api/webhooks/clerk";
 
 const app = new Hono();
+
+app.post("/webhooks/clerk", (c) => handleClerkWebhook(c.req.raw));
 
 app.use("/*", async (c, next) => {
   const startedAt = performance.now();

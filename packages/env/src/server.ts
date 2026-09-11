@@ -7,6 +7,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     CLERK_SECRET_KEY: z.string().min(1).optional(),
     CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
+    CLERK_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
     R2_ACCOUNT_ID: z.string().min(1).optional(),
     R2_BUCKET_NAME: z.string().min(1).optional(),
     R2_ACCESS_KEY_ID: z.string().min(1).optional(),
