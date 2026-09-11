@@ -138,7 +138,7 @@ export function CompanySidebar({
       href: `/company/${companyId}/staff`,
       label: "Company Staff",
       icon: UserGroupIcon,
-      badge: "3",
+      badge: undefined,
       active: pathname === `/company/${companyId}/staff`,
     },
     {

@@ -6,7 +6,7 @@ import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schem
 import { protectedProcedure, publicProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
-import { requireCompanyAccess, requireCompanyWriteAccess } from "../security/company-access";
+import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
 
 const uuid = z.string().uuid();
 
@@ -109,7 +109,7 @@ export const landRouter = {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     await enforceRateLimit(clerkId, "estate.create", 12);
-    const access = await requireCompanyWriteAccess(clerkId, input.companyId);
+    const access = await requireCompanyPermission(clerkId, input.companyId, "estate:write");
     const boundary = asMultiPolygon(input.boundary);
     const boundaryJson = JSON.stringify(boundary);
     const [created] = await db.insert(estates).values({
@@ -134,7 +134,7 @@ export const landRouter = {
     await enforceRateLimit(clerkId, "plot.create", 60);
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
-    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const access = await requireCompanyPermission(clerkId, estate.companyId, "plot:write");
     const boundaryJson = JSON.stringify(input.boundary);
     let created: { id: string; plotNumber: string; status: string; areaSquareMeters: string; price: string } | undefined;
     try {
@@ -162,7 +162,7 @@ export const landRouter = {
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
-    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const access = await requireCompanyPermission(clerkId, estate.companyId, "plot:write");
     const result = await db.execute(sql`
       UPDATE estates SET status = 'submitted', updated_at = now()
       WHERE id = ${input.estateId} AND status IN ('draft','rejected')
