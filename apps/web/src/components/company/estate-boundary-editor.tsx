@@ -21,6 +21,9 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [region, setRegion] = useState("");
   const [district, setDistrict] = useState("");
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -115,8 +118,8 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Trace the estate's outer perimeter first. Add as many corners as its real shape requires; three is only the minimum.</p>
           </div>
           <PlaceAutocomplete onSelect={selectPlace} />
-          <label className="block text-sm font-medium">Estate name<input required name="name" minLength={2} maxLength={256} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
-          <label className="block text-sm font-medium">URL slug<input required name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="east-legon-hills" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+          <label className="block text-sm font-medium">Estate name<input required name="name" value={name} onChange={(event) => { const value = event.target.value; setName(value); if (!slugEdited) setSlug(value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); }} minLength={2} maxLength={256} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+          <label className="block text-sm font-medium">URL slug<input required name="slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); }} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="east-legon-hills" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm font-medium">Region<input required name="region" value={region} onChange={(event) => setRegion(event.target.value)} minLength={2} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
             <label className="block text-sm font-medium">District<input name="district" value={district} onChange={(event) => setDistrict(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
