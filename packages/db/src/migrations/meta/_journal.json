@@ -8,6 +8,13 @@
       "when": 1788962120626,
       "tag": "0000_goofy_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789092567255,
+      "tag": "0001_shocking_zarek",
+      "breakpoints": true
     }
   ]
 }

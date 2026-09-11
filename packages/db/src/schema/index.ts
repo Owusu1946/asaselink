@@ -5,3 +5,8 @@ export * from "./company-applications";
 export * from "./company-documents";
 export * from "./company-members";
 export * from "./audit-logs";
+export * from "./geometry";
+export * from "./estates";
+export * from "./plots";
+export * from "./restricted-areas";
+export * from "./geometry-versions";
