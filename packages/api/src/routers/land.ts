@@ -28,6 +28,24 @@ export const landRouter = {
       .from(plots).where(eq(plots.estateId, input.estateId));
   }),
 
+  getEstateWorkspace: protectedProcedure.input(z.object({ companyId: uuid, estateId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireCompanyAccess(clerkId, input.companyId);
+    const estateRows = await db.execute(sql`
+      SELECT id, name, slug, region, district, status, ST_AsGeoJSON(boundary)::json AS boundary
+      FROM estates WHERE id = ${input.estateId} AND company_id = ${input.companyId} LIMIT 1
+    `);
+    const estate = estateRows.rows[0];
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    const plotRows = await db.execute(sql`
+      SELECT id, plot_number AS "plotNumber", status, area_square_meters AS "areaSquareMeters", price,
+        ST_AsGeoJSON(boundary)::json AS boundary
+      FROM plots WHERE estate_id = ${input.estateId} ORDER BY plot_number
+    `);
+    return { ...estate, plots: plotRows.rows };
+  }),
+
   listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
     const result = await db.execute(sql`
       SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",

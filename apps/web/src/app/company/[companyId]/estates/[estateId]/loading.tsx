@@ -1,0 +1,1 @@
+export default function EstateWorkspaceLoading() { return <div className="animate-pulse"><div className="h-9 w-64 rounded bg-muted" /><div className="mt-8 min-h-[38rem] rounded-2xl bg-muted" /></div>; }
