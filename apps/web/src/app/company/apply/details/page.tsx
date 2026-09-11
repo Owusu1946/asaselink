@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { notify } from "@/utils/notify";
 
 function DetailsContent() {
   const router = useRouter();
@@ -80,10 +81,12 @@ function DetailsContent() {
         address: address.trim() || undefined,
       });
 
+      notify.success("Company details saved");
       router.push("/company/apply/representative");
     } catch (err: unknown) {
       console.error("Failed to save details:", err);
       setError(err instanceof Error ? err.message : "Could not save company details.");
+      notify.apiError(err, "Company details were not saved");
     } finally {
       setIsSubmitting(false);
     }

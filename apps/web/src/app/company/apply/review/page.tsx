@@ -14,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { notify } from "@/utils/notify";
 
 function ReviewContent() {
   const router = useRouter();
@@ -63,10 +64,12 @@ function ReviewContent() {
         declarationAccepted: true,
       });
 
+      notify.success("Application submitted", { description: "AsaseLink will notify you when the compliance review is complete." });
       router.push("/company/application");
     } catch (err: unknown) {
       console.error("Failed to submit application:", err);
       setError(err instanceof Error ? err.message : "Your application could not be submitted.");
+      notify.apiError(err, "Application was not submitted");
     } finally {
       setIsSubmitting(false);
     }

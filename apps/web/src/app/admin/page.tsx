@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { AdminNav } from "@/components/dashboard/admin-nav";
 import { buttonVariants } from "@asaselink/ui/components/button";
 import {
   ShieldCheck,
@@ -14,7 +13,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
-import ApiProvider from "@/components/api-provider";
 
 interface QueueItem {
   id: string;
@@ -88,8 +86,6 @@ function AdminQueueContent() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <AdminNav />
-
       <main className="mx-auto max-w-6xl p-6 sm:p-10 space-y-8">
         {loadError ? (
           <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
@@ -299,9 +295,5 @@ function AdminQueueContent() {
 }
 
 export default function AdminPage() {
-  return (
-    <ApiProvider clerkEnabled>
-      <AdminQueueContent />
-    </ApiProvider>
-  );
+  return <AdminQueueContent />;
 }

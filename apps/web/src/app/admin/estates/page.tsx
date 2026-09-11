@@ -1,38 +1,31 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { AdminNav } from "@/components/dashboard/admin-nav";
-import ApiProvider from "@/components/api-provider";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon, CheckmarkCircle02Icon, Location01Icon, Loading03Icon } from "@hugeicons/core-free-icons";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
 
 interface EstateQueueItem { id: string; name: string; region: string; district?: string; status: string; companyName: string; plotCount: number }
+interface ReviewDraft { estate: EstateQueueItem; decision: "approved" | "rejected" }
+
+function ReviewModal({ draft, pending, error, onClose, onConfirm }: { draft: ReviewDraft; pending: boolean; error: string | null; onClose: () => void; onConfirm: (reason: string) => void }) {
+  const [reason, setReason] = useState("");
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { fieldRef.current?.focus(); const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !pending) onClose(); }; document.addEventListener("keydown", close); return () => document.removeEventListener("keydown", close); }, [onClose, pending]);
+  const approving = draft.decision === "approved";
+  return <div className="fixed inset-0 z-[70] grid place-items-end bg-black/45 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) onClose(); }}><section role="dialog" aria-modal="true" aria-labelledby="estate-review-title" className="w-full max-w-lg rounded-t-3xl border border-border bg-background p-6 shadow-2xl sm:rounded-3xl sm:p-7"><div className="flex items-start justify-between gap-5"><div className="flex gap-3"><span className={`grid size-10 shrink-0 place-items-center rounded-xl ${approving ? "bg-brand-green-100 text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300" : "bg-destructive/10 text-destructive"}`}><HugeiconsIcon icon={approving ? CheckmarkCircle02Icon : Cancel01Icon} size={20} /></span><div><h2 id="estate-review-title" className="text-xl font-semibold tracking-tight">{approving ? "Publish estate" : "Reject estate"}</h2><p className="mt-1 text-sm text-muted-foreground">{draft.estate.name} by {draft.estate.companyName}</p></div></div><button type="button" disabled={pending} onClick={onClose} aria-label="Close review" className="grid size-10 place-items-center rounded-xl hover:bg-muted disabled:opacity-50"><HugeiconsIcon icon={Cancel01Icon} size={18} /></button></div><div className="mt-6 rounded-xl border border-border bg-muted/40 p-4 text-sm"><div className="flex justify-between gap-4"><span className="text-muted-foreground">Location</span><strong className="text-right">{draft.estate.district ? `${draft.estate.district}, ` : ""}{draft.estate.region}</strong></div><div className="mt-2 flex justify-between gap-4"><span className="text-muted-foreground">Mapped plots</span><strong>{draft.estate.plotCount}</strong></div></div><label className="mt-5 block text-sm font-medium">Decision note<textarea ref={fieldRef} value={reason} onChange={(event) => setReason(event.target.value)} rows={4} maxLength={1000} placeholder={approving ? "Record why this estate is ready for publication…" : "Explain what must be corrected before resubmission…"} className="mt-2 w-full resize-none rounded-xl border border-input bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label><p className="mt-1 text-xs text-muted-foreground">Minimum 5 characters. This note becomes part of the audit record.</p>{error ? <p role="alert" className="mt-3 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}<div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={pending} onClick={onClose}>Cancel</Button><Button type="button" disabled={pending || reason.trim().length < 5} onClick={() => onConfirm(reason.trim())} className={approving ? "bg-brand-green-900 text-white hover:bg-brand-green-800" : ""}>{pending ? <><HugeiconsIcon icon={Loading03Icon} size={16} className="animate-spin" />Saving decision…</> : approving ? "Publish estate" : "Reject estate"}</Button></div></section></div>;
+}
 
 function EstateQueue() {
   const [items, setItems] = useState<EstateQueueItem[]>([]);
+  const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pendingId, setPendingId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-  useEffect(() => { client.admin.getEstateQueue().then((rows) => setItems(rows as unknown as EstateQueueItem[])).catch((cause) => setError(cause instanceof Error ? cause.message : "Estate queue could not load.")); }, []);
-
-  function decide(estateId: string, decision: "approved" | "rejected") {
-    const reason = window.prompt(decision === "approved" ? "Approval audit note" : "Rejection reason");
-    if (!reason || reason.trim().length < 5) return;
-    const previous = items;
-    setError(null); setPendingId(estateId);
-    setItems((current) => current.map((estate) => estate.id === estateId ? { ...estate, status: decision } : estate));
-    startTransition(async () => {
-      try {
-        const result = await client.admin.reviewEstate({ estateId, decision, reason: reason.trim() });
-        setItems((current) => current.map((estate) => estate.id === estateId ? { ...estate, status: String(result.status) } : estate));
-      } catch (cause) {
-        setItems(previous);
-        setError(cause instanceof Error ? cause.message : "Decision could not be saved.");
-      } finally { setPendingId(null); }
-    });
-  }
-
-  return <div className="min-h-svh bg-background"><AdminNav /><main className="mx-auto max-w-6xl space-y-6 p-6 sm:p-10"><div><h1 className="text-3xl font-bold tracking-tight">Estate publication queue</h1><p className="mt-2 text-sm text-muted-foreground">Approve mapped estates before they appear to buyers.</p></div>{error ? <p role="alert" className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{error}</p> : null}<div className="space-y-3">{items.map((estate) => <article key={estate.id} className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center"><div><h2 className="font-semibold">{estate.name}</h2><p className="mt-1 text-sm text-muted-foreground">{estate.companyName} · {estate.district ? `${estate.district}, ` : ""}{estate.region} · {estate.plotCount} plots</p></div><div className="flex items-center gap-2"><span aria-live="polite" className="mr-2 rounded-full border border-border px-3 py-1 text-xs capitalize">{estate.status}</span>{estate.status === "submitted" ? <><Button type="button" disabled={pendingId === estate.id} onClick={() => decide(estate.id, "approved")}>Approve</Button><Button type="button" variant="outline" disabled={pendingId === estate.id} onClick={() => decide(estate.id, "rejected")}>Reject</Button></> : null}</div></article>)}</div>{!items.length && !error ? <p className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">No estates are awaiting or have completed review.</p> : null}</main></div>;
+  const [loading, setLoading] = useState(true);
+  const [pending, startTransition] = useTransition();
+  useEffect(() => { client.admin.getEstateQueue().then((rows) => setItems(rows as unknown as EstateQueueItem[])).catch((cause) => setError(cause instanceof Error ? cause.message : "Estate queue could not load.")).finally(() => setLoading(false)); }, []);
+  function decide(reason: string) { if (!draft) return; const current = draft; setError(null); startTransition(async () => { try { const result = await client.admin.reviewEstate({ estateId: current.estate.id, decision: current.decision, reason }); setItems((items) => items.map((estate) => estate.id === current.estate.id ? { ...estate, status: String(result.status) } : estate)); setDraft(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "Decision could not be saved."); } }); }
+  return <main className="mx-auto max-w-6xl space-y-7 p-5 sm:p-8 lg:p-10"><header className="flex flex-col justify-between gap-4 border-b border-border pb-6 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-brand-green-800 dark:text-brand-green-300">Estate governance</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">Publication queue</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Review mapped boundaries and publish approved inventory to buyers.</p></div><div className="rounded-xl border border-border bg-card px-4 py-3"><span className="text-xs text-muted-foreground">Awaiting review</span><strong className="ml-3 text-xl">{items.filter((item) => item.status === "submitted").length}</strong></div></header>{error && !draft ? <p role="alert" className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{error}</p> : null}<div className="space-y-3">{items.map((estate) => <article key={estate.id} className="flex flex-col justify-between gap-5 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center"><div className="flex min-w-0 gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-green-50 text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300"><HugeiconsIcon icon={Location01Icon} size={19} /></span><div className="min-w-0"><h2 className="truncate font-semibold">{estate.name}</h2><p className="mt-1 text-sm text-muted-foreground">{estate.companyName}</p><p className="mt-1 text-xs text-muted-foreground">{estate.district ? `${estate.district}, ` : ""}{estate.region} · {estate.plotCount} mapped plots</p></div></div><div className="flex items-center gap-2"><span className="mr-auto rounded-full border border-border px-3 py-1 text-xs capitalize sm:mr-2">{estate.status}</span>{estate.status === "submitted" ? <><Button type="button" onClick={() => { setError(null); setDraft({ estate, decision: "approved" }); }}>Review</Button><Button type="button" variant="outline" onClick={() => { setError(null); setDraft({ estate, decision: "rejected" }); }}>Reject</Button></> : null}</div></article>)}</div>{!items.length && !loading && !error ? <div className="rounded-2xl border border-dashed border-border p-12 text-center"><HugeiconsIcon icon={CheckmarkCircle02Icon} size={28} className="mx-auto text-brand-green-800" /><h2 className="mt-3 font-semibold">Queue cleared</h2><p className="mt-1 text-sm text-muted-foreground">No estates require a publication decision.</p></div> : null}{loading ? <div className="space-y-3 animate-pulse"><div className="h-24 rounded-2xl bg-muted" /><div className="h-24 rounded-2xl bg-muted" /></div> : null}{draft ? <ReviewModal draft={draft} pending={pending} error={error} onClose={() => { if (!pending) { setDraft(null); setError(null); } }} onConfirm={decide} /> : null}</main>;
 }
 
-export default function AdminEstatesPage() { return <ApiProvider clerkEnabled><EstateQueue /></ApiProvider>; }
+export default function AdminEstatesPage() { return <EstateQueue />; }

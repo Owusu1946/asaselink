@@ -222,6 +222,7 @@ export const authRouter = {
   updateBuyerProfile: protectedProcedure
     .input(
       z.object({
+        email: z.string().email().optional(),
         firstName: z.string().min(1, "First name is required"),
         lastName: z.string().min(1, "Last name is required"),
         phoneNumber: z.string().min(8, "Valid phone number is required"),
@@ -241,6 +242,7 @@ export const authRouter = {
             .insert(users)
             .values({
               clerkId,
+              email: input.email,
               firstName: input.firstName,
               lastName: input.lastName,
               phoneNumber: input.phoneNumber,
@@ -248,6 +250,19 @@ export const authRouter = {
             })
             .returning();
           userRecord = inserted[0];
+        } else {
+          const updatedUsers = await db
+            .update(users)
+            .set({
+              email: input.email ?? userRecord.email,
+              firstName: input.firstName,
+              lastName: input.lastName,
+              phoneNumber: input.phoneNumber,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, userRecord.id))
+            .returning();
+          userRecord = updatedUsers[0] ?? userRecord;
         }
 
         if (!userRecord) throw new Error("Could not find user record");

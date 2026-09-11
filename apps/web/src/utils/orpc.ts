@@ -4,7 +4,7 @@ import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { notify } from "@/utils/notify";
 
 import { getClerkAuthToken } from "@/utils/clerk-auth";
 
@@ -22,9 +22,10 @@ export function createQueryClient() {
     },
     queryCache: new QueryCache({
       onError: (error, query) => {
-        toast.error(`Error: ${error.message}`, {
+        notify.error("Unable to load data", {
+          description: error.message,
           action: {
-            label: "retry",
+            label: "Retry",
             onClick: () => {
               query.invalidate();
             },

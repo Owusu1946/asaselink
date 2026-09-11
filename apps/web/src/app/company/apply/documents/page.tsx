@@ -8,6 +8,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { notify } from "@/utils/notify";
 
 interface DocumentSlot {
   type: string;
@@ -61,6 +62,7 @@ function DocumentsContent() {
               return {
                 ...slot,
                 file: {
+                  id: match.id,
                   fileName: match.fileName,
                   fileKey: match.fileKey,
                   fileSize: match.fileSize || 1024 * 512,
@@ -102,24 +104,20 @@ function DocumentsContent() {
 
     setIsSubmitting(true);
     try {
-      const payloadDocs = docSlots
+      const documentIds = docSlots
         .filter((s) => s.file !== null)
-        .map((s) => ({
-          documentType: s.type,
-          fileName: s.file!.fileName,
-          fileKey: s.file!.fileKey,
-          fileSize: s.file!.fileSize,
-          mimeType: s.file!.mimeType,
-        }));
+        .map((s) => s.file!.id);
 
       await orpc.company.saveDocuments.call({
-        documents: payloadDocs,
+        documentIds,
       });
 
+      notify.success("Documents saved", { description: "Your verified uploads are ready for review." });
       router.push("/company/apply/review");
     } catch (err: unknown) {
       console.error("Failed to save documents:", err);
       setError(err instanceof Error ? err.message : "Documents could not be saved.");
+      notify.apiError(err, "Documents could not be saved");
     } finally {
       setIsSubmitting(false);
     }

@@ -16,7 +16,7 @@ export const companyDocuments = pgTable("company_documents", {
   fileKey: varchar("file_key", { length: 512 }).notNull(),
   fileSize: integer("file_size"),
   mimeType: varchar("mime_type", { length: 128 }),
-  status: varchar("status", { length: 32 }).notNull().default("uploaded"), // uploaded | verified | rejected
+  status: varchar("status", { length: 32 }).notNull().default("uploading"), // uploading | uploaded | verified | rejected
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

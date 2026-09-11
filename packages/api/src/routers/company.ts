@@ -9,8 +9,13 @@ import {
   companyMembers,
   auditLogs,
 } from "@asaselink/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { protectedProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
+import { companyDocumentKey, createDocumentUploadUrl, createDocumentViewUrl, deleteDocumentObject, DOCUMENT_MIME_TYPES, MAX_DOCUMENT_BYTES, verifyDocumentObject } from "../storage/r2";
+
+const documentType = z.enum(["certificate_of_incorporation", "commencement_certificate", "representative_id", "tax_clearance"]);
+const requiredDocumentTypes = new Set(["certificate_of_incorporation", "commencement_certificate", "representative_id"]);
 
 export const companyRouter = {
   getApplication: protectedProcedure.handler(async ({ context }) => {
@@ -37,7 +42,7 @@ export const companyRouter = {
       const docs = await db
         .select()
         .from(companyDocuments)
-        .where(eq(companyDocuments.applicationId, apps[0].application.id));
+        .where(and(eq(companyDocuments.applicationId, apps[0].application.id), inArray(companyDocuments.status, ["uploaded", "verified", "rejected"])));
 
       return {
         application: apps[0].application,
@@ -186,18 +191,82 @@ export const companyRouter = {
       return { success: true, nextStep: "documents" };
     }),
 
+  beginDocumentUpload: protectedProcedure
+    .input(z.object({ documentType, fileName: z.string().trim().min(1).max(256), fileSize: z.number().int().positive().max(MAX_DOCUMENT_BYTES), mimeType: z.enum(DOCUMENT_MIME_TYPES) }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await enforceRateLimit(clerkId, "company.document.upload", 30);
+      const [owner] = await db.select({ userId: users.id, application: companyApplications })
+        .from(users).innerJoin(companyApplications, eq(companyApplications.applicantUserId, users.id))
+        .where(eq(users.clerkId, clerkId)).limit(1);
+      if (!owner) throw new ORPCError("NOT_FOUND", { message: "No company application is available." });
+      if (owner.application.currentStep === "submitted") throw new ORPCError("CONFLICT", { message: "Submitted applications cannot be edited." });
+
+      const fileKey = companyDocumentKey(owner.application.companyId, owner.application.id, input.documentType, input.fileName);
+      const uploadUrl = await createDocumentUploadUrl(fileKey, input.mimeType);
+      const [document] = await db.insert(companyDocuments).values({ companyId: owner.application.companyId, applicationId: owner.application.id, documentType: input.documentType, fileName: input.fileName, fileKey, fileSize: input.fileSize, mimeType: input.mimeType, status: "uploading" }).returning();
+      if (!document) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "The upload could not be initialized." });
+      return { documentId: document.id, uploadUrl, expiresIn: 300 };
+    }),
+
+  confirmDocumentUpload: protectedProcedure
+    .input(z.object({ documentId: z.string().uuid() }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const [document] = await db.select({ document: companyDocuments })
+        .from(companyDocuments)
+        .innerJoin(companyApplications, eq(companyDocuments.applicationId, companyApplications.id))
+        .innerJoin(users, eq(companyApplications.applicantUserId, users.id))
+        .where(and(eq(companyDocuments.id, input.documentId), eq(users.clerkId, clerkId))).limit(1);
+      if (!document) throw new ORPCError("NOT_FOUND");
+      const object = await verifyDocumentObject(document.document.fileKey);
+      if (object.ContentLength !== document.document.fileSize || object.ContentType !== document.document.mimeType) {
+        throw new ORPCError("BAD_REQUEST", { message: "The uploaded file did not match the authorized file metadata." });
+      }
+      const [confirmed] = await db.update(companyDocuments).set({ status: "uploaded" }).where(eq(companyDocuments.id, input.documentId)).returning();
+      const superseded = await db.select().from(companyDocuments).where(and(eq(companyDocuments.applicationId, document.document.applicationId!), eq(companyDocuments.documentType, document.document.documentType), ne(companyDocuments.id, document.document.id)));
+      if (superseded.length) {
+        await db.delete(companyDocuments).where(inArray(companyDocuments.id, superseded.map((item) => item.id)));
+        await Promise.allSettled(superseded.map((item) => deleteDocumentObject(item.fileKey)));
+      }
+      return confirmed;
+    }),
+
+  getDocumentViewUrl: protectedProcedure
+    .input(z.object({ documentId: z.string().uuid() }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const [document] = await db.select({ document: companyDocuments })
+        .from(companyDocuments)
+        .innerJoin(companyApplications, eq(companyDocuments.applicationId, companyApplications.id))
+        .innerJoin(users, eq(companyApplications.applicantUserId, users.id))
+        .where(and(eq(companyDocuments.id, input.documentId), eq(users.clerkId, clerkId), inArray(companyDocuments.status, ["uploaded", "verified"]))).limit(1);
+      if (!document) throw new ORPCError("NOT_FOUND");
+      return { url: await createDocumentViewUrl(document.document.fileKey, document.document.fileName), expiresIn: 120 };
+    }),
+
+  removeDocument: protectedProcedure
+    .input(z.object({ documentId: z.string().uuid() }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const [owned] = await db.select({ document: companyDocuments, application: companyApplications })
+        .from(companyDocuments).innerJoin(companyApplications, eq(companyDocuments.applicationId, companyApplications.id)).innerJoin(users, eq(companyApplications.applicantUserId, users.id))
+        .where(and(eq(companyDocuments.id, input.documentId), eq(users.clerkId, clerkId))).limit(1);
+      if (!owned) throw new ORPCError("NOT_FOUND");
+      if (owned.application.currentStep === "submitted") throw new ORPCError("CONFLICT", { message: "Submitted application documents cannot be removed." });
+      await deleteDocumentObject(owned.document.fileKey);
+      await db.delete(companyDocuments).where(eq(companyDocuments.id, owned.document.id));
+      return { success: true };
+    }),
+
   saveDocuments: protectedProcedure
     .input(
       z.object({
-        documents: z.array(
-          z.object({
-            documentType: z.string(),
-            fileName: z.string(),
-            fileKey: z.string(),
-            fileSize: z.number().optional(),
-            mimeType: z.string().optional(),
-          }),
-        ),
+        documentIds: z.array(z.string().uuid()).min(3).max(8),
       }),
     )
     .handler(async ({ context, input }) => {
@@ -215,17 +284,10 @@ export const companyRouter = {
         .limit(1);
       if (!app) throw new Error("No application in progress");
 
-      for (const doc of input.documents) {
-        await db.insert(companyDocuments).values({
-          companyId: app.companyId,
-          applicationId: app.id,
-          documentType: doc.documentType,
-          fileName: doc.fileName,
-          fileKey: doc.fileKey,
-          fileSize: doc.fileSize,
-          mimeType: doc.mimeType,
-          status: "uploaded",
-        });
+      const documents = await db.select().from(companyDocuments).where(and(eq(companyDocuments.applicationId, app.id), inArray(companyDocuments.id, input.documentIds), eq(companyDocuments.status, "uploaded")));
+      const uploadedTypes = new Set(documents.map((doc) => doc.documentType));
+      if (documents.length !== input.documentIds.length || [...requiredDocumentTypes].some((type) => !uploadedTypes.has(type))) {
+        throw new ORPCError("BAD_REQUEST", { message: "Upload and confirm every required document before continuing." });
       }
 
       await db
