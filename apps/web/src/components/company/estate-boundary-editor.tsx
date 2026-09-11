@@ -7,6 +7,7 @@ import { env } from "@asaselink/env/web";
 import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
 import { boundaryData, EMPTY_COLLECTION, type Position } from "./estate-boundary";
+import { PlaceAutocomplete, type PlaceSelection } from "./place-autocomplete";
 
 export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
   const mapId = useId().replaceAll(":", "");
@@ -18,6 +19,8 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [region, setRegion] = useState("");
+  const [district, setDistrict] = useState("");
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -71,6 +74,12 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
     (mapRef.current?.getSource("draft-boundary") as mapboxgl.GeoJSONSource | undefined)?.setData(boundaryData(next));
   }
 
+  function selectPlace(place: PlaceSelection) {
+    setRegion(place.region ?? "");
+    setDistrict(place.district ?? "");
+    mapRef.current?.flyTo({ center: place.coordinates, zoom: 16, essential: true });
+  }
+
   function submit(formData: FormData) {
     if (points.length < 3) return;
     setSubmitError(null);
@@ -86,6 +95,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
           priceFrom: formData.get("priceFrom") ? Number(formData.get("priceFrom")) : undefined,
           reason: "Initial estate boundary registration",
           boundary: { type: "Polygon", coordinates: [ring] },
+          address: String(formData.get("address") ?? "") || undefined,
         });
         updatePoints([]);
         router.refresh();
@@ -104,11 +114,12 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
             <h2 id={`${mapId}-title`} className="mt-2 text-xl font-semibold tracking-tight">Register a mapped estate</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Trace the estate's outer perimeter first. Add as many corners as its real shape requires; three is only the minimum.</p>
           </div>
+          <PlaceAutocomplete onSelect={selectPlace} />
           <label className="block text-sm font-medium">Estate name<input required name="name" minLength={2} maxLength={256} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <label className="block text-sm font-medium">URL slug<input required name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="east-legon-hills" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block text-sm font-medium">Region<input required name="region" minLength={2} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
-            <label className="block text-sm font-medium">District<input name="district" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+            <label className="block text-sm font-medium">Region<input required name="region" value={region} onChange={(event) => setRegion(event.target.value)} minLength={2} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+            <label className="block text-sm font-medium">District<input name="district" value={district} onChange={(event) => setDistrict(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           </div>
           <label className="block text-sm font-medium">Starting price (GHS)<input name="priceFrom" type="number" min="0" step="0.01" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <div className="rounded-xl bg-muted px-3 py-2.5 text-sm"><div className="flex items-center justify-between"><span>{points.length < 3 ? `${3 - points.length} more corner${3 - points.length === 1 ? "" : "s"} required` : `${points.length} corners added · keep clicking to refine`}</span><button type="button" onClick={() => updatePoints(points.slice(0, -1))} disabled={points.length === 0} className="font-semibold underline-offset-4 hover:underline disabled:opacity-40">Undo last</button></div>{points.length >= 3 ? <p className="mt-1 text-xs text-muted-foreground">Save when the perimeter matches the complete estate boundary. You will map individual plots next.</p> : null}</div>
