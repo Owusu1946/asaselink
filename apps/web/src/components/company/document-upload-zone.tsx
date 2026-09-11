@@ -12,8 +12,11 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button } from "@asaselink/ui/components/button";
 import { cn } from "@asaselink/ui/lib/utils";
+import { orpc } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 export interface UploadedFileMeta {
+  id: string;
   fileName: string;
   fileKey: string;
   fileSize?: number;
@@ -57,7 +60,7 @@ export function DocumentUploadZone({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const processFile = (selectedFile: File) => {
+  const processFile = async (selectedFile: File) => {
     setErrorMessage(null);
 
     // Max 15MB
@@ -73,19 +76,49 @@ export function DocumentUploadZone({
     }
 
     setIsUploading(true);
-    setTimeout(() => {
+    try {
+      const authorization = await orpc.company.beginDocumentUpload.call({ documentType: documentType as "certificate_of_incorporation" | "commencement_certificate" | "representative_id" | "tax_clearance", fileName: selectedFile.name, fileSize: selectedFile.size, mimeType: selectedFile.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp" });
+      const response = await fetch(authorization.uploadUrl, { method: "PUT", headers: { "Content-Type": selectedFile.type }, body: selectedFile });
+      if (!response.ok) throw new Error(response.status === 403 ? "The upload authorization expired or the R2 CORS policy rejected this request." : "Cloud storage rejected the upload.");
+      const confirmed = await orpc.company.confirmDocumentUpload.call({ documentId: authorization.documentId });
+      if (!confirmed) throw new Error("The upload could not be confirmed.");
+      onUploadComplete({ id: confirmed.id, fileName: confirmed.fileName, fileKey: confirmed.fileKey, fileSize: confirmed.fileSize ?? undefined, mimeType: confirmed.mimeType ?? undefined });
+      notify.success("Document uploaded", { description: selectedFile.name });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The document could not be uploaded.";
+      setErrorMessage(message);
+      notify.error("Upload failed", { description: message });
+    } finally {
       setIsUploading(false);
-      const fileKey = `docs/${documentType}_${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const previewUrl = URL.createObjectURL(selectedFile);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
-      onUploadComplete({
-        fileName: selectedFile.name,
-        fileKey,
-        fileSize: selectedFile.size,
-        mimeType: selectedFile.type,
-        previewUrl,
-      });
-    }, 450);
+  const removeFile = async () => {
+    if (!file) return;
+    try {
+      await orpc.company.removeDocument.call({ documentId: file.id });
+      onRemove();
+      notify.success("Document removed");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The document could not be removed.";
+      setErrorMessage(message);
+      notify.error("Remove failed", { description: message });
+    }
+  };
+
+  const viewFile = async () => {
+    if (!file) return;
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    try {
+      const result = await orpc.company.getDocumentViewUrl.call({ documentId: file.id });
+      if (tab) tab.location.href = result.url;
+      else window.location.assign(result.url);
+    } catch (error) {
+      tab?.close();
+      notify.apiError(error, "Document could not be opened");
+    }
   };
 
   return (
@@ -134,6 +167,7 @@ export function DocumentUploadZone({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <Button type="button" variant="ghost" size="sm" onClick={viewFile} disabled={disabled} className="text-xs h-8">View</Button>
             <Button
               type="button"
               variant="outline"
@@ -146,7 +180,7 @@ export function DocumentUploadZone({
             </Button>
             <button
               type="button"
-              onClick={onRemove}
+              onClick={removeFile}
               disabled={disabled}
               className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               title="Remove"

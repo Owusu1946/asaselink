@@ -8,9 +8,10 @@ import {
   companyDocuments,
   auditLogs,
 } from "@asaselink/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { protectedProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
+import { createDocumentViewUrl } from "../storage/r2";
 
 export const adminRouter = {
   getEstateQueue: protectedProcedure.handler(async ({ context }) => {
@@ -99,7 +100,7 @@ export const adminRouter = {
       const documents = await db
         .select()
         .from(companyDocuments)
-        .where(eq(companyDocuments.companyId, input.companyId));
+        .where(and(eq(companyDocuments.companyId, input.companyId), inArray(companyDocuments.status, ["uploaded", "verified", "rejected"])));
 
       const logs = await db
         .select()
@@ -113,6 +114,20 @@ export const adminRouter = {
         documents,
         logs,
       };
+    }),
+
+  getCompanyDocumentViewUrl: protectedProcedure
+    .input(z.object({ companyId: z.string().uuid(), documentId: z.string().uuid() }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+      if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+      await enforceRateLimit(clerkId, "admin.document.view", 120);
+      const [document] = await db.select().from(companyDocuments).where(and(eq(companyDocuments.id, input.documentId), eq(companyDocuments.companyId, input.companyId), inArray(companyDocuments.status, ["uploaded", "verified", "rejected"]))).limit(1);
+      if (!document) throw new ORPCError("NOT_FOUND");
+      await db.insert(auditLogs).values({ userId: admin.id, action: "company.document_viewed", entityType: "company_document", entityId: document.id, metadata: { companyId: input.companyId } });
+      return { url: await createDocumentViewUrl(document.fileKey, document.fileName), expiresIn: 120 };
     }),
 
   reviewCompany: protectedProcedure
@@ -154,12 +169,17 @@ export const adminRouter = {
       await db
         .update(companyApplications)
         .set({
+          currentStep: input.decision === "changes_requested" ? "documents" : "submitted",
           reviewedAt: now,
           reviewerUserId: user.id,
           reviewNotes: input.reason,
           updatedAt: now,
         })
         .where(eq(companyApplications.companyId, input.companyId));
+
+      if (input.decision === "approved" || input.decision === "rejected") {
+        await db.update(companyDocuments).set({ status: input.decision === "approved" ? "verified" : "rejected" }).where(eq(companyDocuments.companyId, input.companyId));
+      }
 
       // 3. Create immutable audit log
       await db.insert(auditLogs).values({

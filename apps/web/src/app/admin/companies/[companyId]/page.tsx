@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
 import { documentTypeLabel, fileSizeLabel } from "@/utils/document-display";
+import { notify } from "@/utils/notify";
 
 function CompanyReviewContent() {
   const params = useParams();
@@ -38,8 +39,18 @@ function CompanyReviewContent() {
   const [submitSuccess, setSubmitSuccess] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  // Document preview mock modal
-  const [previewDoc, setPreviewDoc] = React.useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = React.useState<{ id: string; fileName: string; mimeType: string | null; url?: string } | null>(null);
+
+  const openDocument = async (doc: any) => {
+    setPreviewDoc({ id: doc.id, fileName: doc.fileName, mimeType: doc.mimeType });
+    try {
+      const result = await orpc.admin.getCompanyDocumentViewUrl.call({ companyId, documentId: doc.id });
+      setPreviewDoc((current) => current?.id === doc.id ? { ...current, url: result.url } : current);
+    } catch (error) {
+      setPreviewDoc(null);
+      notify.apiError(error, "Document could not be opened");
+    }
+  };
 
   const loadData = React.useCallback(() => {
     setIsLoading(true);
@@ -81,8 +92,10 @@ function CompanyReviewContent() {
       });
       setReviewData((current: any) => current ? { ...current, company: { ...current.company, status: result.newStatus } } : current);
       setSubmitSuccess(`Application status successfully updated to ${decision.replace("_", " ")}.`);
+      notify.success("Review decision saved", { description: `Application marked ${decision.replace("_", " ")}.` });
     } catch (error: unknown) {
       setSubmitError(error instanceof Error ? error.message : "The review decision could not be saved.");
+      notify.apiError(error, "Review decision failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -287,7 +300,7 @@ function CompanyReviewContent() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setPreviewDoc(doc.fileName)}
+                        onClick={() => openDocument(doc)}
                         className="text-xs"
                       >
                         Preview
@@ -487,7 +500,7 @@ function CompanyReviewContent() {
           </div>
         </div>
 
-        {/* Modal for Mock Document Preview */}
+        {/* Secure, short-lived R2 document preview */}
         {previewDoc && (
           <div
             role="dialog"
@@ -508,12 +521,8 @@ function CompanyReviewContent() {
                 </Button>
               </div>
 
-              <div className="rounded-xl border border-border bg-muted/30 p-8 text-center space-y-2">
-                <FileText className="size-10 text-muted-foreground mx-auto" />
-                <p className="text-xs font-semibold text-foreground">{previewDoc}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  This file is recorded for administrator review. No external registry verification has been recorded yet.
-                </p>
+              <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
+                {!previewDoc.url ? <div className="grid min-h-80 place-items-center"><Spinner className="size-6" /></div> : previewDoc.mimeType === "application/pdf" ? <iframe title={previewDoc.fileName} src={previewDoc.url} className="h-[65vh] w-full bg-white" /> : <img src={previewDoc.url} alt={previewDoc.fileName} className="max-h-[65vh] w-full object-contain" />}
               </div>
 
               <div className="flex justify-end">

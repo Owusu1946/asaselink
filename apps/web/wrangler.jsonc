@@ -11,4 +11,10 @@
   "images": {
     "binding": "IMAGES",
   },
+  "r2_buckets": [
+    {
+      "binding": "DOCUMENTS",
+      "bucket_name": "asaselink-documents",
+    },
+  ],
 }
