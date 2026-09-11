@@ -8,11 +8,18 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 
 const app = new Hono();
 
-app.use(logger());
+app.use("/*", async (c, next) => {
+  const startedAt = performance.now();
+  const requestId = c.req.header("cf-ray") ?? crypto.randomUUID();
+  c.header("x-request-id", requestId);
+  await next();
+  const durationMs = Math.round((performance.now() - startedAt) * 100) / 100;
+  c.header("server-timing", `app;dur=${durationMs}`);
+  console.log(JSON.stringify({ event: "http.request", requestId, method: c.req.method, path: new URL(c.req.url).pathname, status: c.res.status, durationMs }));
+});
 app.use(
   "/*",
   cors({

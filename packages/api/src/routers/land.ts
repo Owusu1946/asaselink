@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@asaselink/db";
 import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { requireCompanyAccess, requireCompanyWriteAccess } from "../security/company-access";
 
@@ -107,6 +108,7 @@ export const landRouter = {
   })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "estate.create", 12);
     const access = await requireCompanyWriteAccess(clerkId, input.companyId);
     const boundary = asMultiPolygon(input.boundary);
     const boundaryJson = JSON.stringify(boundary);
@@ -114,7 +116,7 @@ export const landRouter = {
       companyId: input.companyId, name: input.name, slug: input.slug, description: input.description,
       region: input.region, district: input.district, address: input.address,
       priceFrom: input.priceFrom?.toFixed(2), boundary: sql`ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326))`,
-    }).returning({ id: estates.id, name: estates.name, slug: estates.slug, status: estates.status });
+    }).returning({ id: estates.id, name: estates.name, slug: estates.slug, region: estates.region, district: estates.district, status: estates.status, priceFrom: estates.priceFrom });
     if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
     await Promise.all([
       db.insert(geometryVersions).values({ resourceType: "estate", resourceId: created.id, action: "created", afterGeometry: boundary, actorUserId: access.user.id, reason: input.reason }),
@@ -129,6 +131,7 @@ export const landRouter = {
   })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "plot.create", 60);
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
     const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
@@ -151,7 +154,7 @@ export const landRouter = {
       db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
     ]);
-    return created;
+    return { ...created, boundary: savedBoundary };
   }),
 
   submitEstate: protectedProcedure.input(z.object({ estateId: uuid })).handler(async ({ context, input }) => {

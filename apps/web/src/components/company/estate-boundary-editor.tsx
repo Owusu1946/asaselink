@@ -1,7 +1,6 @@
 "use client";
 
 import type mapboxgl from "mapbox-gl";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { env } from "@asaselink/env/web";
 import { Button } from "@asaselink/ui/components/button";
@@ -9,12 +8,11 @@ import { client } from "@/utils/orpc";
 import { boundaryData, EMPTY_COLLECTION, type Position } from "./estate-boundary";
 import { PlaceAutocomplete, type PlaceSelection } from "./place-autocomplete";
 
-export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: string; onCreated?: (estate: { id: string; name: string; slug: string; status: string }) => void }) {
+export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: string; onCreated?: (estate: { id: string; name: string; slug: string; region: string; district: string | null; status: string; priceFrom: string | null }) => void }) {
   const mapId = useId().replaceAll(":", "");
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const pointsRef = useRef<Position[]>([]);
-  const router = useRouter();
   const [points, setPoints] = useState<Position[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -102,7 +100,7 @@ export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: stri
         });
         onCreated?.(created);
         updatePoints([]);
-        router.refresh();
+        setName(""); setSlug(""); setSlugEdited(false); setRegion(""); setDistrict("");
       } catch (error) {
         setSubmitError(error instanceof Error ? error.message : "The estate could not be saved.");
       }

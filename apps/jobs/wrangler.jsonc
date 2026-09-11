@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "asaselink-jobs",
+  "main": "src/index.ts",
+  "workers_dev": false,
+  "compatibility_date": "2026-09-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "triggers": { "crons": ["*/1 * * * *"] },
+  "queues": {
+    "producers": [{ "binding": "EVENTS", "queue": "asaselink-events" }],
+    "consumers": [{ "queue": "asaselink-events", "dead_letter_queue": "asaselink-events-dlq", "max_batch_size": 50, "max_batch_timeout": 5, "max_retries": 5 }]
+  }
+}

@@ -2,10 +2,10 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { setClerkAuthTokenGetter } from "@/utils/clerk-auth";
-import { queryClient } from "@/utils/orpc";
+import { createQueryClient } from "@/utils/orpc";
 
 function ClerkApiAuthBridge() {
   const { getToken } = useAuth();
@@ -28,6 +28,7 @@ export default function ApiProvider({
   children: React.ReactNode;
   clerkEnabled?: boolean;
 }) {
+  const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
       {clerkEnabled ? <ClerkApiAuthBridge /> : null}

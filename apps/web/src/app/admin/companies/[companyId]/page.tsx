@@ -76,13 +76,13 @@ function CompanyReviewContent() {
     setSubmitSuccess(null);
 
     try {
-      await orpc.admin.reviewCompany.call({
+      const result = await orpc.admin.reviewCompany.call({
         companyId,
         decision,
         reason: reason.trim(),
       });
+      setReviewData((current: any) => current ? { ...current, company: { ...current.company, status: result.newStatus } } : current);
       setSubmitSuccess(`Application status successfully updated to ${decision.replace("_", " ")}.`);
-      loadData();
     } catch (error: unknown) {
       setSubmitError(error instanceof Error ? error.message : "The review decision could not be saved.");
     } finally {

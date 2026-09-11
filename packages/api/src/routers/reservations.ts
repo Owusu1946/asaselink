@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@asaselink/db";
 import { buyerProfiles, users } from "@asaselink/db/schema";
 import { protectedProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
 
 const uuid = z.string().uuid();
 
@@ -19,6 +20,7 @@ export const reservationRouter = {
   create: protectedProcedure.input(z.object({ plotId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "reservation.create", 10);
     const buyer = await requireReadyBuyer(clerkId);
     const reference = `ASL-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const result = await db.execute(sql`
@@ -42,6 +44,9 @@ export const reservationRouter = {
       ), audited AS (
         INSERT INTO audit_logs (user_id, action, entity_type, entity_id, metadata)
         SELECT ${buyer.id}, 'reservation.created', 'reservation', id::text, jsonb_build_object('plotId', "plotId", 'reference', reference) FROM created
+      ), outboxed AS (
+        INSERT INTO outbox_events (topic, aggregate_id, payload)
+        SELECT 'reservation.created', id::text, jsonb_build_object('reservationId', id, 'plotId', "plotId", 'reference', reference) FROM created
       ) SELECT * FROM created
     `);
     const reservation = result.rows[0];
