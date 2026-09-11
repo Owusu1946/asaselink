@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { documentTypeLabel, fileSizeLabel } from "@/utils/document-display";
 
 function CompanyReviewContent() {
   const params = useParams();
@@ -276,8 +277,7 @@ function CompanyReviewContent() {
                       <div>
                         <div className="font-semibold text-foreground">{doc.fileName}</div>
                         <div className="text-[11px] text-muted-foreground capitalize">
-                          {doc.type.replace("_", " ")} &middot;{" "}
-                          {(doc.fileSize / 1024 / 1024).toFixed(1)} MB
+                          {documentTypeLabel(doc.documentType)} &middot; {fileSizeLabel(doc.fileSize)}
                         </div>
                       </div>
                     </div>
@@ -285,7 +285,7 @@ function CompanyReviewContent() {
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1 rounded bg-brand-green-100 dark:bg-brand-green-950 px-2 py-0.5 text-[10px] font-semibold text-brand-green-900 dark:text-brand-green-300">
                         <Check className="size-2.5" />
-                        Valid
+                        {doc.status === "verified" ? "Verified" : "Uploaded"}
                       </span>
                       <Button
                         type="button"
@@ -516,7 +516,7 @@ function CompanyReviewContent() {
                 <FileText className="size-10 text-muted-foreground mx-auto" />
                 <p className="text-xs font-semibold text-foreground">{previewDoc}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Official cryptographic hash and signature verified by Ghana Government PKI.
+                  This file is recorded for administrator review. No external registry verification has been recorded yet.
                 </p>
               </div>
 
