@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -35,34 +35,9 @@ interface CompanySidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   onRegisterEstateClick?: () => void;
+  counts?: { estateCount: number; availablePlotCount: number; activeStaffCount: number };
+  recentEstates: Array<{ id: string; name: string; status: string; plotCount: number }>;
 }
-
-const RECENT_ESTATES = [
-  {
-    id: "1",
-    name: "Asase Hills Masterplan — Phase 1",
-    plots: "48 plots",
-    status: "Verified",
-  },
-  {
-    id: "2",
-    name: "Airport Hills Executive Extension",
-    plots: "12 plots",
-    status: "Verified",
-  },
-  {
-    id: "3",
-    name: "Prampram Beachfront Layout",
-    plots: "24 plots",
-    status: "In Review",
-  },
-  {
-    id: "4",
-    name: "Aburi Scenic Ridge Parcels",
-    plots: "16 plots",
-    status: "Draft",
-  },
-];
 
 export function CompanySidebar({
   companyName,
@@ -73,8 +48,11 @@ export function CompanySidebar({
   mobileOpen,
   onCloseMobile,
   onRegisterEstateClick,
+  counts,
+  recentEstates,
 }: CompanySidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
 
   const [searchFilter, setSearchFilter] = React.useState("");
@@ -102,7 +80,7 @@ export function CompanySidebar({
     .join("")
     .toUpperCase();
 
-  const filteredEstates = RECENT_ESTATES.filter((item) =>
+  const filteredEstates = recentEstates.filter((item) =>
     item.name.toLowerCase().includes(searchFilter.toLowerCase()),
   );
 
@@ -117,28 +95,28 @@ export function CompanySidebar({
       href: `/company/${companyId}/estates`,
       label: "Registered Estates",
       icon: Building02Icon,
-      badge: "0",
+      badge: String(counts?.estateCount ?? 0),
       active: pathname === `/company/${companyId}/estates`,
     },
     {
       href: `/company/${companyId}/plots`,
       label: "Managed Plots",
       icon: Location01Icon,
-      badge: "0",
+      badge: String(counts?.availablePlotCount ?? 0),
       active: pathname === `/company/${companyId}/plots`,
     },
     {
       href: `/company/${companyId}/cadastral`,
       label: "Cadastral Survey Records",
       icon: FileValidationIcon,
-      badge: "1",
+      badge: undefined,
       active: pathname === `/company/${companyId}/cadastral`,
     },
     {
       href: `/company/${companyId}/staff`,
       label: "Company Staff",
       icon: UserGroupIcon,
-      badge: undefined,
+      badge: String(counts?.activeStaffCount ?? 0),
       active: pathname === `/company/${companyId}/staff`,
     },
     {
@@ -184,8 +162,8 @@ export function CompanySidebar({
 
         {/* Action Button: "+ Register Estate" (ChatGPT "+ New chat" inspired) */}
         <div className="p-3">
-          <button
-            type="button"
+          <Link
+            href={`/company/${companyId}/estates`}
             onClick={onRegisterEstateClick}
             className={cn(
               "group flex w-full items-center justify-between rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-[#212121] px-3 py-2 text-xs font-medium text-foreground shadow-2xs hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all text-left",
@@ -204,7 +182,7 @@ export function CompanySidebar({
                 ⌘E
               </span>
             )}
-          </button>
+          </Link>
         </div>
 
         {/* Middle Navigation & Estate Records (No visible scrollbar) */}
@@ -272,21 +250,21 @@ export function CompanySidebar({
                     <div
                       key={item.id}
                       className="group relative flex items-center justify-between rounded-lg px-2.5 py-2 text-neutral-700 dark:text-neutral-300 hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-foreground cursor-pointer transition-colors"
-                      onClick={() => onRegisterEstateClick?.()}
+                      onClick={() => router.push(`/company/${companyId}/estates/${item.id}`)}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <span className="truncate text-xs font-medium">{item.name}</span>
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          <span>{item.plots}</span>
+                          <span>{item.plotCount} plot{item.plotCount === 1 ? "" : "s"}</span>
                           <span>·</span>
                           <span
                             className={cn(
-                              item.status === "Verified"
+                              item.status === "approved"
                                 ? "text-brand-green-800 dark:text-brand-green-400"
                                 : "text-amber-600 dark:text-amber-400",
                             )}
                           >
-                            {item.status}
+                            {item.status.replace("_", " ")}
                           </span>
                         </div>
                       </div>
