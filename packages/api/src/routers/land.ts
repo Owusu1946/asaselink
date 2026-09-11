@@ -1,0 +1,83 @@
+import { ORPCError } from "@orpc/server";
+import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@asaselink/db";
+import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schema";
+import { protectedProcedure, publicProcedure } from "../index";
+import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
+import { requireCompanyWriteAccess } from "../security/company-access";
+
+const uuid = z.string().uuid();
+
+export const landRouter = {
+  listCompanyEstates: protectedProcedure.input(z.object({ companyId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireCompanyWriteAccess(clerkId, input.companyId);
+    return db.select({ id: estates.id, name: estates.name, slug: estates.slug, region: estates.region, district: estates.district, status: estates.status, priceFrom: estates.priceFrom, updatedAt: estates.updatedAt })
+      .from(estates).where(eq(estates.companyId, input.companyId));
+  }),
+
+  createEstate: protectedProcedure.input(z.object({
+    companyId: uuid,
+    name: z.string().trim().min(2).max(256),
+    slug: z.string().trim().min(2).max(256).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    description: z.string().trim().max(5000).optional(),
+    region: z.string().trim().min(2).max(128),
+    district: z.string().trim().max(128).optional(),
+    address: z.string().trim().max(1000).optional(),
+    priceFrom: z.number().nonnegative().optional(),
+    boundary: estateGeometrySchema,
+    reason: z.string().trim().min(5).max(1000),
+  })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const access = await requireCompanyWriteAccess(clerkId, input.companyId);
+    const boundary = asMultiPolygon(input.boundary);
+    const boundaryJson = JSON.stringify(boundary);
+    const [created] = await db.insert(estates).values({
+      companyId: input.companyId, name: input.name, slug: input.slug, description: input.description,
+      region: input.region, district: input.district, address: input.address,
+      priceFrom: input.priceFrom?.toFixed(2), boundary: sql`ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326))`,
+    }).returning({ id: estates.id, name: estates.name, slug: estates.slug, status: estates.status });
+    if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
+    await Promise.all([
+      db.insert(geometryVersions).values({ resourceType: "estate", resourceId: created.id, action: "created", afterGeometry: boundary, actorUserId: access.user.id, reason: input.reason }),
+      db.insert(auditLogs).values({ userId: access.user.id, action: "estate.created", entityType: "estate", entityId: created.id, reason: input.reason, metadata: { companyId: input.companyId } }),
+    ]);
+    return created;
+  }),
+
+  createPlot: protectedProcedure.input(z.object({
+    estateId: uuid, plotNumber: z.string().trim().min(1).max(128), price: z.number().nonnegative(),
+    boundary: polygonSchema, reason: z.string().trim().min(5).max(1000),
+  })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    const access = await requireCompanyWriteAccess(clerkId, estate.companyId);
+    const boundaryJson = JSON.stringify(input.boundary);
+    const [created] = await db.insert(plots).values({ estateId: input.estateId, plotNumber: input.plotNumber, price: input.price.toFixed(2), areaSquareMeters: "1", boundary: sql`ST_SetSRID(ST_GeomFromGeoJSON(${boundaryJson}), 4326)` })
+      .returning({ id: plots.id, plotNumber: plots.plotNumber, status: plots.status, areaSquareMeters: plots.areaSquareMeters, price: plots.price });
+    if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
+    await Promise.all([
+      db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: input.boundary, actorUserId: access.user.id, reason: input.reason }),
+      db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
+    ]);
+    return created;
+  }),
+
+  viewport: publicProcedure.input(z.object({ west: z.number().min(-180).max(180), south: z.number().min(-90).max(90), east: z.number().min(-180).max(180), north: z.number().min(-90).max(90) }).refine((b) => b.west < b.east && b.south < b.north && b.east - b.west <= 5 && b.north - b.south <= 5, "Viewport bounds are invalid or too large.")).handler(async ({ input }) => {
+    const rows = await db.execute(sql`
+      SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
+        ST_AsGeoJSON(e.boundary)::json AS boundary
+      FROM estates e
+      WHERE e.status = 'approved'
+        AND ST_Intersects(e.boundary, ST_MakeEnvelope(${input.west}, ${input.south}, ${input.east}, ${input.north}, 4326))
+      ORDER BY e.name
+      LIMIT 200
+    `);
+    return rows;
+  }),
+};
