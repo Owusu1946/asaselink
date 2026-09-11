@@ -102,7 +102,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Estate registry</p>
             <h2 id={`${mapId}-title`} className="mt-2 text-xl font-semibold tracking-tight">Register a mapped estate</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Enter the details, then click at least three points on the satellite map to trace the legal perimeter.</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Trace the estate's outer perimeter first. Add as many corners as its real shape requires; three is only the minimum.</p>
           </div>
           <label className="block text-sm font-medium">Estate name<input required name="name" minLength={2} maxLength={256} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <label className="block text-sm font-medium">URL slug<input required name="slug" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="east-legon-hills" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
@@ -111,7 +111,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
             <label className="block text-sm font-medium">District<input name="district" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           </div>
           <label className="block text-sm font-medium">Starting price (GHS)<input name="priceFrom" type="number" min="0" step="0.01" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
-          <div className="flex items-center justify-between rounded-xl bg-muted px-3 py-2.5 text-sm"><span>{points.length < 3 ? `${3 - points.length} more point${3 - points.length === 1 ? "" : "s"} required` : `${points.length} boundary points ready`}</span><button type="button" onClick={() => updatePoints(points.slice(0, -1))} disabled={points.length === 0} className="font-semibold underline-offset-4 hover:underline disabled:opacity-40">Undo</button></div>
+          <div className="rounded-xl bg-muted px-3 py-2.5 text-sm"><div className="flex items-center justify-between"><span>{points.length < 3 ? `${3 - points.length} more corner${3 - points.length === 1 ? "" : "s"} required` : `${points.length} corners added · keep clicking to refine`}</span><button type="button" onClick={() => updatePoints(points.slice(0, -1))} disabled={points.length === 0} className="font-semibold underline-offset-4 hover:underline disabled:opacity-40">Undo last</button></div>{points.length >= 3 ? <p className="mt-1 text-xs text-muted-foreground">Save when the perimeter matches the complete estate boundary. You will map individual plots next.</p> : null}</div>
           {submitError ? <p role="alert" className="text-sm text-destructive">{submitError}</p> : null}
           <Button type="submit" disabled={points.length < 3 || isPending} className="h-12 w-full rounded-xl">{isPending ? "Validating boundary…" : "Validate and register estate"}</Button>
         </form>
@@ -119,7 +119,7 @@ export function EstateBoundaryEditor({ companyId }: { companyId: string }) {
           <div ref={containerRef} className="absolute inset-0 h-full w-full" style={{ width: "100%", height: "100%" }} aria-label="Satellite map boundary editor" />
           {!mapReady && !mapError ? <div className="absolute inset-0 grid place-items-center text-sm text-white/80">Loading satellite imagery…</div> : null}
           {mapError ? <div role="alert" className="absolute inset-x-4 top-4 rounded-xl border border-red-300/40 bg-black/80 p-3 text-sm text-white backdrop-blur">{mapError}</div> : null}
-          <div className="pointer-events-none absolute bottom-5 left-5 rounded-full border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">Click corners clockwise · server validation on save</div>
+          <div className="pointer-events-none absolute bottom-5 left-5 rounded-full border border-white/20 bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">Unlimited corners · click clockwise around the full perimeter</div>
         </div>
       </div>
     </section>
