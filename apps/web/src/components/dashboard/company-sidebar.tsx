@@ -168,33 +168,7 @@ export function CompanySidebar({
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        {/* Top Header: Brand & Collapse Toggle */}
-        <div className="flex h-14 items-center justify-between px-3.5 border-b border-black/[0.06] dark:border-white/[0.06]">
-          {!collapsed ? (
-            <Link
-              href={overviewHref}
-              className="flex items-center gap-2 font-semibold text-sm tracking-tight text-foreground hover:opacity-90 transition-opacity"
-            >
-              <span className="flex size-6 items-center justify-center rounded-lg bg-brand-green-900 text-white dark:bg-brand-green-800">
-                <span className="size-2 rounded-full bg-brand-gold-500" />
-              </span>
-              <span className="font-semibold text-sm">
-                Asase<span className="text-brand-green-900 dark:text-brand-green-400">Link</span>
-              </span>
-              <span className="rounded-full bg-brand-green-100 dark:bg-brand-green-950 px-1.5 py-0.5 text-[10px] font-semibold text-brand-green-900 dark:text-brand-green-300">
-                Company
-              </span>
-            </Link>
-          ) : (
-            <Link
-              href={overviewHref}
-              className="mx-auto flex size-8 items-center justify-center rounded-lg bg-brand-green-900 text-white dark:bg-brand-green-800"
-              title="Company Workspace"
-            >
-              <span className="size-2.5 rounded-full bg-brand-gold-500" />
-            </Link>
-          )}
-
+        <div className="flex h-14 items-center justify-end px-3.5 border-b border-black/[0.06] dark:border-white/[0.06]">
           <button
             type="button"
             onClick={onToggleCollapse}
