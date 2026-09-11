@@ -10,6 +10,7 @@ import { Checkbox } from "@asaselink/ui/components/checkbox";
 import { Spinner } from "@asaselink/ui/components/spinner";
 import { AlertCircle, CheckCircle2, ShieldCheck, LogOut } from "lucide-react";
 import { orpc } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 export function BuyerProfileForm() {
   const { user, isLoaded } = useUser();
@@ -77,11 +78,13 @@ export function BuyerProfileForm() {
         communicationConsent: consent,
       });
 
+      notify.success("Profile saved");
       router.replace(returnUrl);
     } catch (err: unknown) {
       console.error("Failed to save profile:", err);
-      // Fallback redirect to account
-      router.replace(returnUrl);
+      const message = err instanceof Error ? err.message : "Your profile could not be saved.";
+      setError(message);
+      notify.error("Profile was not saved", { description: message });
     } finally {
       setIsSubmitting(false);
     }

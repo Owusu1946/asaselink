@@ -7,6 +7,7 @@ import type { Geometry } from "geojson";
 import { Button } from "@asaselink/ui/components/button";
 import { EstatePlotMap, type PublicPlot } from "./estate-plot-map";
 import { client } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 export function EstateDetailClient({ slug, boundary, plots }: { slug: string; boundary: Geometry; plots: PublicPlot[] }) {
   const [livePlots, setLivePlots] = useState(plots);
@@ -30,13 +31,14 @@ export function EstateDetailClient({ slug, boundary, plots }: { slug: string; bo
     startTransition(async () => {
       try {
         await client.reservations.create({ plotId: previous.id });
+        notify.success("Plot reserved", { description: `${previous.plotNumber} has been secured for you.` });
         router.push("/account/reservations");
       } catch (error) {
         setSelected(previous);
         setLivePlots((current) => current.map((plot) => plot.id === previous.id ? previous : plot));
         const message = error instanceof Error ? error.message : "The plot could not be reserved.";
         if (message.toLowerCase().includes("buyer profile")) router.push(`/onboarding/profile?return_url=${encodeURIComponent(returnUrl)}`);
-        else setReservationError(message);
+        else { setReservationError(message); notify.error("Reservation failed", { description: message }); }
       }
     });
   }

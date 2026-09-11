@@ -7,6 +7,7 @@ import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
 import { boundaryData, EMPTY_COLLECTION, type Position } from "./estate-boundary";
 import { PlaceAutocomplete, type PlaceSelection } from "./place-autocomplete";
+import { notify } from "@/utils/notify";
 
 export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: string; onCreated?: (estate: { id: string; name: string; slug: string; region: string; district: string | null; status: string; priceFrom: string | null }) => void }) {
   const mapId = useId().replaceAll(":", "");
@@ -99,10 +100,12 @@ export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: stri
           address: String(formData.get("address") ?? "") || undefined,
         });
         onCreated?.(created);
+        notify.success("Estate registered", { description: `${created.name} is ready for plot mapping.` });
         updatePoints([]);
         setName(""); setSlug(""); setSlugEdited(false); setRegion(""); setDistrict("");
       } catch (error) {
         setSubmitError(error instanceof Error ? error.message : "The estate could not be saved.");
+        notify.apiError(error, "Estate could not be registered");
       }
     });
   }

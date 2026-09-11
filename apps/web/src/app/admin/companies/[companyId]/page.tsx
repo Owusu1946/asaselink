@@ -45,7 +45,10 @@ function CompanyReviewContent() {
     setPreviewDoc({ id: doc.id, fileName: doc.fileName, mimeType: doc.mimeType });
     try {
       const result = await orpc.admin.getCompanyDocumentViewUrl.call({ companyId, documentId: doc.id });
-      setPreviewDoc((current) => current?.id === doc.id ? { ...current, url: result.url } : current);
+      setPreviewDoc((current) => {
+        if (!current || current.id !== doc.id) return current;
+        return { ...current, url: result.url };
+      });
     } catch (error) {
       setPreviewDoc(null);
       notify.apiError(error, "Document could not be opened");

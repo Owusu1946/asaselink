@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon } from "@hugeicons/core-free-icons";
 import { orpc } from "@/utils/orpc";
 import ApiProvider from "@/components/api-provider";
+import { notify } from "@/utils/notify";
 
 function RepresentativeContent() {
   const router = useRouter();
@@ -78,10 +79,12 @@ function RepresentativeContent() {
         repIdNumber: repIdNumber.trim().toUpperCase(),
       });
 
+      notify.success("Representative saved");
       router.push("/company/apply/documents");
     } catch (err: unknown) {
       console.error("Failed to save representative:", err);
       setError(err instanceof Error ? err.message : "Could not save representative details.");
+      notify.apiError(err, "Representative was not saved");
     } finally {
       setIsSubmitting(false);
     }

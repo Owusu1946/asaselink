@@ -8,6 +8,7 @@ import { env } from "@asaselink/env/web";
 import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
 import type { Position } from "./estate-boundary";
+import { notify } from "@/utils/notify";
 
 interface ExistingPlot { id: string; plotNumber: string; status: string; price: string; areaSquareMeters: string; boundary: Geometry }
 
@@ -80,8 +81,9 @@ export function PlotEditor({ estateId, estateBoundary, plots }: { estateId: stri
       try {
         const created = await client.land.createPlot({ estateId, plotNumber: String(formData.get("plotNumber") ?? ""), price: Number(formData.get("price")), reason: "Initial surveyed plot registration", boundary: { type: "Polygon", coordinates: [[...points, points[0]!]] } });
         setSavedPlots((current) => current.some((plot) => plot.id === created.id) ? current : [...current, created]);
+        notify.success("Plot added", { description: `Plot ${created.plotNumber} is now mapped.` });
         resetDraft();
-      } catch (cause) { setError(cause instanceof Error ? cause.message : "The plot could not be saved."); }
+      } catch (cause) { setError(cause instanceof Error ? cause.message : "The plot could not be saved."); notify.apiError(cause, "Plot could not be added"); }
     });
   }
 
