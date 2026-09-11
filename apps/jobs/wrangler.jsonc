@@ -2,6 +2,7 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "asaselink-jobs",
   "main": "src/index.ts",
+  "workers_dev": false,
   "compatibility_date": "2026-09-11",
   "compatibility_flags": ["nodejs_compat"],
   "triggers": { "crons": ["*/1 * * * *"] },
