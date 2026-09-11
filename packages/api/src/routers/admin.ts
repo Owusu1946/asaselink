@@ -32,7 +32,15 @@ export const adminRouter = {
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
     if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
-    const updated = await db.execute(sql`UPDATE estates SET status=${input.decision}, updated_at=now() WHERE id=${input.estateId} AND status='submitted' RETURNING id, status`);
+    const updated = await db.execute(sql`
+      WITH reviewed AS (
+        UPDATE estates SET status=${input.decision}, updated_at=now()
+        WHERE id=${input.estateId} AND status='submitted' RETURNING id, status
+      ), outboxed AS (
+        INSERT INTO outbox_events (topic, aggregate_id, payload)
+        SELECT 'estate.reviewed', id::text, jsonb_build_object('estateId', id, 'decision', status) FROM reviewed
+      ) SELECT * FROM reviewed
+    `);
     if (!updated.rows[0]) throw new ORPCError("CONFLICT", { message: "This estate is not awaiting review." });
     await db.insert(auditLogs).values({ userId: user.id, action: `estate.${input.decision}`, entityType: "estate", entityId: input.estateId, reason: input.reason });
     return updated.rows[0];

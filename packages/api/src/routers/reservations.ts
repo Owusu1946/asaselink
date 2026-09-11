@@ -42,6 +42,9 @@ export const reservationRouter = {
       ), audited AS (
         INSERT INTO audit_logs (user_id, action, entity_type, entity_id, metadata)
         SELECT ${buyer.id}, 'reservation.created', 'reservation', id::text, jsonb_build_object('plotId', "plotId", 'reference', reference) FROM created
+      ), outboxed AS (
+        INSERT INTO outbox_events (topic, aggregate_id, payload)
+        SELECT 'reservation.created', id::text, jsonb_build_object('reservationId', id, 'plotId', "plotId", 'reference', reference) FROM created
       ) SELECT * FROM created
     `);
     const reservation = result.rows[0];

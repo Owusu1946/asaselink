@@ -1,0 +1,5 @@
+{
+  "extends": "@asaselink/config/tsconfig.base.json",
+  "compilerOptions": { "types": ["@cloudflare/workers-types"], "lib": ["ES2023", "WebWorker"] },
+  "include": ["src/**/*.ts"]
+}

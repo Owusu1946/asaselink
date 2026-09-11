@@ -1,0 +1,8 @@
+{
+  "name": "@asaselink/jobs",
+  "private": true,
+  "type": "module",
+  "scripts": { "check-types": "tsc --noEmit", "deploy": "wrangler deploy", "dev": "wrangler dev" },
+  "dependencies": { "@neondatabase/serverless": "^1.1.0" },
+  "devDependencies": { "@cloudflare/workers-types": "catalog:", "@asaselink/config": "workspace:*", "typescript": "catalog:", "wrangler": "^4.129.0" }
+}
