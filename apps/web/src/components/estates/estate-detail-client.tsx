@@ -1,0 +1,13 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useState } from "react";
+import type { Geometry } from "geojson";
+import { Button } from "@asaselink/ui/components/button";
+import { EstatePlotMap, type PublicPlot } from "./estate-plot-map";
+
+export function EstateDetailClient({ slug, boundary, plots }: { slug: string; boundary: Geometry; plots: PublicPlot[] }) {
+  const [selected, setSelected] = useState<PublicPlot | null>(() => plots.find((plot) => plot.status === "AVAILABLE") ?? null);
+  const selectPlot = useCallback((plot: PublicPlot) => setSelected(plot), []);
+  return <div className="grid gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(19rem,0.75fr)]"><EstatePlotMap estateBoundary={boundary} plots={plots} onSelect={selectPlot} /><aside className="rounded-2xl border border-border bg-card p-5 sm:p-6"><h2 className="text-lg font-semibold">Plot inventory</h2><p className="mt-1 text-sm text-muted-foreground">Select a boundary on the map or choose a plot below.</p><div className="mt-5 max-h-72 space-y-2 overflow-y-auto pr-1">{plots.map((plot) => <button key={plot.id} type="button" onClick={() => setSelected(plot)} className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected?.id === plot.id ? "border-brand-gold-500 bg-brand-gold-50 dark:bg-brand-gold-950/30" : "border-border hover:bg-muted"}`}><span><strong className="block">{plot.plotNumber}</strong><span className="text-xs text-muted-foreground">{Number(plot.areaSquareMeters).toLocaleString()} m²</span></span><span className="text-right"><strong className="block">GHS {Number(plot.price).toLocaleString()}</strong><span className="text-xs capitalize text-muted-foreground">{plot.status.toLowerCase()}</span></span></button>)}</div>{plots.length === 0 ? <p className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">No plots have been published for this estate yet.</p> : null}{selected ? <div className="mt-5 border-t border-border pt-5"><p className="font-semibold">{selected.plotNumber}</p><p className="mt-1 text-sm text-muted-foreground">Availability is confirmed again before reservation.</p>{selected.status === "AVAILABLE" ? <Link className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground" href={`/sign-in?intent=buyer&redirect_url=${encodeURIComponent(`/estates/${slug}?plot=${selected.id}`)}`}>Reserve this plot</Link> : <Button disabled className="mt-4 h-12 w-full rounded-xl">Plot unavailable</Button>}</div> : null}</aside></div>;
+}

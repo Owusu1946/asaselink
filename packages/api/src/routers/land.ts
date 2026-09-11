@@ -55,7 +55,16 @@ export const landRouter = {
     `);
     const estate = rows.rows[0];
     if (!estate) throw new ORPCError("NOT_FOUND");
-    return estate;
+    const plotRows = await db.execute(sql`
+      SELECT p.id, p.plot_number AS "plotNumber", p.status,
+        p.area_square_meters AS "areaSquareMeters", p.price,
+        ST_AsGeoJSON(p.boundary)::json AS boundary
+      FROM plots p
+      WHERE p.estate_id = ${(estate as { id: string }).id}
+        AND p.status IN ('AVAILABLE', 'RESERVED', 'SOLD')
+      ORDER BY p.plot_number
+    `);
+    return { ...estate, plots: plotRows.rows };
   }),
 
   createEstate: protectedProcedure.input(z.object({

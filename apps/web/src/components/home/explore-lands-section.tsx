@@ -125,10 +125,11 @@ const CATEGORIES = [
 ] as const;
 
 interface ExploreLandsSectionProps {
+  estates?: EstateListing[];
   filterCriteria?: { location: string; type: string; budget: string } | null;
 }
 
-export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps) {
+export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: ExploreLandsSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All Lands");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
 
@@ -139,7 +140,7 @@ export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps
   };
 
   const filteredEstates = useMemo(() => {
-    return ESTATES_DATA.filter((estate) => {
+    return estates.filter((estate) => {
       // Category tab filter
       if (selectedCategory !== "All Lands" && estate.category !== selectedCategory) {
         return false;
@@ -177,7 +178,7 @@ export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps
 
       return true;
     });
-  }, [selectedCategory, filterCriteria]);
+  }, [estates, selectedCategory, filterCriteria]);
 
   return (
     <section id="explore-lands" className="relative py-12 sm:py-16 px-4 sm:px-6 md:px-8 border-t border-border/60">
@@ -199,7 +200,7 @@ export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps
 
           <div className="text-xs font-medium text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredEstates.length}</span> of{" "}
-            {ESTATES_DATA.length} prime estates
+            {estates.length} verified estates
           </div>
         </div>
 
@@ -250,6 +251,7 @@ export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps
                   key={estate.id}
                   className="group relative flex flex-col cursor-pointer transition-transform duration-200"
                 >
+                  <Link href={`/estates/${estate.id}`} aria-label={`View ${estate.name}`} className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4" />
                   {/* Image Container with Airbnb 4:3 Aspect Ratio */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
                     <Image
@@ -274,7 +276,7 @@ export function ExploreLandsSection({ filterCriteria }: ExploreLandsSectionProps
                       type="button"
                       onClick={(e) => toggleFavorite(e, estate.id)}
                       aria-label={`Save ${estate.name} to favorites`}
-                      className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
+                      className="absolute right-3 top-3 z-20 flex size-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
                     >
                       <HugeiconsIcon
                         icon={FavouriteIcon}
