@@ -1,4 +1,5 @@
 @import "@asaselink/ui/globals.css";
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 /* Hide scrollbar across all browsers while retaining smooth scroll */
 .no-scrollbar::-webkit-scrollbar {
