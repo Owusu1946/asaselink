@@ -4,6 +4,7 @@ import { Geist } from "next/font/google";
 import { env } from "@asaselink/env/web";
 
 import "../index.css";
+import "goey-toast/styles.css";
 
 import Providers from "@/components/providers";
 
