@@ -12,3 +12,4 @@ export * from "./restricted-areas";
 export * from "./geometry-versions";
 export * from "./reservations";
 export * from "./outbox-events";
+export * from "./api-rate-limits";

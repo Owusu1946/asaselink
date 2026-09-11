@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@asaselink/db";
 import { buyerProfiles, users } from "@asaselink/db/schema";
 import { protectedProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
 
 const uuid = z.string().uuid();
 
@@ -19,6 +20,7 @@ export const reservationRouter = {
   create: protectedProcedure.input(z.object({ plotId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "reservation.create", 10);
     const buyer = await requireReadyBuyer(clerkId);
     const reference = `ASL-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const result = await db.execute(sql`

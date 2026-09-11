@@ -4,7 +4,7 @@ interface Env { DATABASE_URL: string; EVENTS: Queue<{ eventId: string }> }
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(dispatch(env));
+    ctx.waitUntil(Promise.all([expireReservations(env), dispatch(env)]));
   },
   async queue(batch: MessageBatch<unknown>, env: Env) {
     const sql = neon(env.DATABASE_URL);
@@ -44,4 +44,17 @@ async function dispatch(env: Env) {
     await sql`UPDATE outbox_events SET status='pending', last_error=${error instanceof Error ? error.message.slice(0, 1000) : "Queue dispatch failed"} WHERE id = ANY(${ids})`;
     throw error;
   }
+}
+
+async function expireReservations(env: Env) {
+  const sql = neon(env.DATABASE_URL);
+  await sql`
+    WITH expired AS (
+      UPDATE reservations SET status='EXPIRED', updated_at=now()
+      WHERE status='ACTIVE' AND expires_at <= now() RETURNING plot_id
+    )
+    UPDATE plots SET status='AVAILABLE', updated_at=now()
+    WHERE id IN (SELECT plot_id FROM expired) AND status='RESERVED'
+  `;
+  await sql`DELETE FROM api_rate_limits WHERE window_started_at < now() - interval '1 day'`;
 }

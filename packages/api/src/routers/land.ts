@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@asaselink/db";
 import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { requireCompanyAccess, requireCompanyWriteAccess } from "../security/company-access";
 
@@ -107,6 +108,7 @@ export const landRouter = {
   })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "estate.create", 12);
     const access = await requireCompanyWriteAccess(clerkId, input.companyId);
     const boundary = asMultiPolygon(input.boundary);
     const boundaryJson = JSON.stringify(boundary);
@@ -129,6 +131,7 @@ export const landRouter = {
   })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "plot.create", 60);
     const [estate] = await db.select({ companyId: estates.companyId }).from(estates).where(eq(estates.id, input.estateId)).limit(1);
     if (!estate) throw new ORPCError("NOT_FOUND");
     const access = await requireCompanyWriteAccess(clerkId, estate.companyId);

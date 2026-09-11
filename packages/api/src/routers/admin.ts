@@ -10,6 +10,7 @@ import {
 } from "@asaselink/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { protectedProcedure } from "../index";
+import { enforceRateLimit } from "../security/rate-limit";
 
 export const adminRouter = {
   getEstateQueue: protectedProcedure.handler(async ({ context }) => {
@@ -30,6 +31,7 @@ export const adminRouter = {
   reviewEstate: protectedProcedure.input(z.object({ estateId: z.string().uuid(), decision: z.enum(["approved", "rejected"]), reason: z.string().trim().min(5).max(1000) })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "admin.estate.review", 60);
     const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
     if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
     const updated = await db.execute(sql`
@@ -77,7 +79,6 @@ export const adminRouter = {
     .handler(async ({ context, input }) => {
       const clerkId = context.auth?.userId;
       if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-
       const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
       if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
 
@@ -125,6 +126,7 @@ export const adminRouter = {
     .handler(async ({ context, input }) => {
       const clerkId = context.auth?.userId;
       if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await enforceRateLimit(clerkId, "admin.company.review", 60);
 
       const [user] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
       if (!user?.isAdmin) throw new ORPCError("FORBIDDEN");
