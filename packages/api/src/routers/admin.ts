@@ -177,4 +177,56 @@ export const adminRouter = {
 
       return { success: true, newStatus: input.decision };
     }),
+
+  listUsers: protectedProcedure.input(z.object({ search: z.string().trim().max(128).optional() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const search = `%${input.search ?? ""}%`;
+    return db.execute(sql`SELECT id, clerk_id AS "clerkId", email, phone_number AS "phoneNumber", first_name AS "firstName", last_name AS "lastName", status, is_admin AS "isAdmin", created_at AS "createdAt", updated_at AS "updatedAt" FROM users WHERE ${input.search ? sql`coalesce(email,'') ILIKE ${search} OR coalesce(first_name || ' ' || last_name,'') ILIKE ${search}` : sql`TRUE`} ORDER BY created_at DESC LIMIT 200`).then((result) => result.rows);
+  }),
+
+  updateUserAccess: protectedProcedure.input(z.object({ userId: z.string().uuid(), status: z.enum(["active", "suspended", "restricted"]), isAdmin: z.boolean(), reason: z.string().trim().min(5).max(1000) })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "admin.user.update", 60);
+    const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+    if (admin.id === input.userId && (input.status !== "active" || !input.isAdmin)) throw new ORPCError("BAD_REQUEST", { message: "You cannot suspend yourself or remove your own admin access." });
+    const result = await db.execute(sql`WITH previous AS (SELECT id, status, is_admin FROM users WHERE id=${input.userId}), changed AS (UPDATE users SET status=${input.status}, is_admin=${input.isAdmin}, updated_at=now() WHERE id=${input.userId} RETURNING id, status, is_admin AS "isAdmin", updated_at AS "updatedAt") INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata) SELECT ${admin.id}, 'user.access_updated', 'user', changed.id::text, ${input.reason}, jsonb_build_object('previousStatus', previous.status, 'newStatus', changed.status, 'previousIsAdmin', previous.is_admin, 'newIsAdmin', changed."isAdmin") FROM changed JOIN previous USING (id) RETURNING (SELECT row_to_json(changed) FROM changed) AS user`);
+    const updated = (result.rows[0] as { user?: unknown } | undefined)?.user;
+    if (!updated) throw new ORPCError("NOT_FOUND");
+    return updated;
+  }),
+
+  listAuditLogs: protectedProcedure.input(z.object({ search: z.string().trim().max(128).optional() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const search = `%${input.search ?? ""}%`;
+    return db.execute(sql`SELECT a.id, a.action, a.entity_type AS "entityType", a.entity_id AS "entityId", a.reason, a.metadata, a.created_at AS "createdAt", coalesce(u.email, 'System') AS actor FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id WHERE ${input.search ? sql`a.action ILIKE ${search} OR a.entity_type ILIKE ${search} OR a.entity_id ILIKE ${search} OR coalesce(u.email,'') ILIKE ${search}` : sql`TRUE`} ORDER BY a.created_at DESC LIMIT 250`).then((result) => result.rows);
+  }),
+
+  getOperations: protectedProcedure.handler(async ({ context }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [admin] = await db.select({ isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const result = await db.execute(sql`SELECT (SELECT count(*)::int FROM users) AS users, (SELECT count(*)::int FROM companies) AS companies, (SELECT count(*)::int FROM estates) AS estates, (SELECT count(*)::int FROM plots) AS plots, (SELECT count(*)::int FROM reservations WHERE status='ACTIVE') AS "activeReservations", (SELECT count(*)::int FROM outbox_events WHERE status='pending') AS "pendingEvents", (SELECT count(*)::int FROM outbox_events WHERE status='processing') AS "processingEvents", (SELECT count(*)::int FROM outbox_events WHERE last_error IS NOT NULL AND status <> 'processed') AS "failedEvents"`);
+    const events = await db.execute(sql`SELECT id, topic, status, attempts, last_error AS "lastError", created_at AS "createdAt" FROM outbox_events ORDER BY created_at DESC LIMIT 50`);
+    return { metrics: result.rows[0], events: events.rows };
+  }),
+
+  retryOutboxEvent: protectedProcedure.input(z.object({ eventId: z.string().uuid() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+    const result = await db.execute(sql`UPDATE outbox_events SET status='pending', available_at=now(), last_error=NULL WHERE id=${input.eventId} AND status <> 'processed' RETURNING id, status`);
+    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only incomplete events can be retried." });
+    await db.insert(auditLogs).values({ userId: admin.id, action: "outbox.retry_requested", entityType: "outbox_event", entityId: input.eventId, reason: "Manual retry requested from operations console" });
+    return result.rows[0];
+  }),
 };
