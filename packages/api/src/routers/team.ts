@@ -31,6 +31,29 @@ async function ensureOrganization(companyId: string, actorClerkId: string) {
 }
 
 export const teamRouter = {
+  myCompanies: protectedProcedure.handler(async ({ context }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [currentUser] = await db.select().from(users).where(eq(users.clerkId, clerkId)).limit(1);
+    if (!currentUser) return [];
+
+    // Synchronous reconciliation prevents an invitation acceptance from landing on an
+    // empty workspace while the signed webhook is still in flight.
+    const clerkMemberships = await requireClerkClient().users.getOrganizationMembershipList({ userId: clerkId, limit: 100 });
+    for (const membership of clerkMemberships.data) {
+      const [company] = await db.select({ id: companies.id }).from(companies).where(eq(companies.clerkOrganizationId, membership.organization.id)).limit(1);
+      if (!company) continue;
+      const email = membership.publicUserData?.identifier?.toLowerCase();
+      const [invitation] = email ? await db.select({ role: companyInvitations.role }).from(companyInvitations).where(and(eq(companyInvitations.companyId, company.id), eq(companyInvitations.email, email))).limit(1) : [];
+      await db.insert(companyMembers).values({ companyId: company.id, userId: currentUser.id, clerkMembershipId: membership.id, role: localRoleFromMembership(membership.role, invitation?.role), status: "active" }).onConflictDoUpdate({ target: [companyMembers.companyId, companyMembers.userId], set: { clerkMembershipId: membership.id, status: "active", updatedAt: new Date() } });
+    }
+
+    return db.select({ id: companies.id, legalName: companies.legalName, tradeName: companies.tradeName, status: companies.status, role: companyMembers.role })
+      .from(companyMembers).innerJoin(companies, eq(companyMembers.companyId, companies.id))
+      .where(and(eq(companyMembers.userId, currentUser.id), eq(companyMembers.status, "active"), eq(companies.status, "approved")))
+      .orderBy(asc(companies.legalName));
+  }),
+
   list: protectedProcedure.input(z.object({ companyId: z.string().uuid() })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
@@ -105,3 +128,8 @@ export const teamRouter = {
     return { success: true };
   }),
 };
+
+function localRoleFromMembership(clerkRole: string, invitationRole?: string | null) {
+  if (invitationRole && ["admin", "manager", "sales", "surveyor", "viewer"].includes(invitationRole)) return invitationRole;
+  return clerkRole === "org:admin" ? "admin" : "viewer";
+}

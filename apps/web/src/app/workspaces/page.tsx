@@ -20,6 +20,7 @@ import ApiProvider from "@/components/api-provider";
 function WorkspacesContent() {
   const { user, isLoaded } = useUser();
   const [companyData, setCompanyData] = React.useState<any>(null);
+  const [teamCompanies, setTeamCompanies] = React.useState<any[]>([]);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [_isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(false);
@@ -47,9 +48,14 @@ function WorkspacesContent() {
       .finally(() => {
         setIsLoading(false);
       });
+
+    orpc.team.myCompanies.call().then(setTeamCompanies).catch(() => setLoadError(true));
   }, [isLoaded]);
 
   const firstName = user?.firstName || "Member";
+  const developerCompanies = companyData
+    ? [companyData, ...teamCompanies.filter((company) => company.id !== companyData.id)]
+    : teamCompanies;
 
   return (
     <div className="min-h-svh bg-background text-foreground flex flex-col justify-between p-6 sm:p-10 md:p-14">
@@ -126,11 +132,11 @@ function WorkspacesContent() {
           </Link>
 
           {/* Workspace 2: Company Workspace */}
-          {companyData ? (
-            <Link
+          {developerCompanies.length ? developerCompanies.map((company) => (
+            <Link key={company.id}
               href={
-                companyData.status === "approved"
-                  ? `/company/${companyData.id}/overview`
+                company.status === "approved"
+                  ? `/company/${company.id}/overview`
                   : "/company/application"
               }
               className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-xs hover:border-brand-green-900/40 hover:shadow-md transition-all"
@@ -140,7 +146,7 @@ function WorkspacesContent() {
                   <div className="flex size-12 items-center justify-center rounded-xl bg-brand-gold-50 text-brand-gold-700 dark:bg-brand-gold-950 dark:text-brand-gold-300">
                     <Building2 className="size-6" />
                   </div>
-                  {companyData.status === "approved" ? (
+                  {company.status === "approved" ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-green-50 dark:bg-brand-green-950/80 px-2.5 py-0.5 text-xs font-semibold text-brand-green-900 dark:text-brand-green-300">
                       <CheckCircle2 className="size-3.5" />
                       Verified Partner
@@ -155,7 +161,7 @@ function WorkspacesContent() {
 
                 <div className="mt-6">
                   <h2 className="text-xl font-bold text-foreground group-hover:text-brand-green-900 dark:group-hover:text-brand-green-400 transition-colors">
-                    {companyData.legalName || "Estate Developer"}
+                    {company.legalName || "Estate Developer"}
                   </h2>
                   <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
                     Corporate developer workspace for publishing master plans, managing plot
@@ -166,14 +172,14 @@ function WorkspacesContent() {
 
               <div className="mt-8 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-brand-green-900 dark:text-brand-green-400">
                 <span>
-                  {companyData.status === "approved"
+                  {company.status === "approved"
                     ? "Enter Developer Workspace"
                     : "Check Verification Status"}
                 </span>
                 <ChevronRight className="size-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
-          ) : (
+          )) : (
             <Link
               href="/company/apply"
               className="group relative flex flex-col justify-between rounded-2xl border border-dashed border-border bg-card/60 p-6 sm:p-8 shadow-xs hover:border-brand-green-900/50 hover:bg-card transition-all"
