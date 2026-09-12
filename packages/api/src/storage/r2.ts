@@ -4,6 +4,8 @@ import { env } from "@asaselink/env/server";
 
 export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 export const DOCUMENT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const SITE_PLAN_MIME_TYPES = ["image/jpeg", "image/png"] as const;
+export const MAX_SITE_PLAN_BYTES = 20 * 1024 * 1024;
 
 function configuration() {
   const values = { accountId: env.R2_ACCOUNT_ID, bucket: env.R2_BUCKET_NAME, accessKeyId: env.R2_ACCESS_KEY_ID, secretAccessKey: env.R2_SECRET_ACCESS_KEY };
@@ -23,6 +25,10 @@ export function safeFileName(fileName: string) {
 
 export function companyDocumentKey(companyId: string, applicationId: string, documentType: string, fileName: string) {
   return `companies/${companyId}/applications/${applicationId}/${documentType}/${crypto.randomUUID()}-${safeFileName(fileName)}`;
+}
+
+export function estateSitePlanKey(companyId: string, estateId: string, fileName: string) {
+  return `companies/${companyId}/estates/${estateId}/site-plans/${crypto.randomUUID()}-${safeFileName(fileName)}`;
 }
 
 export async function createDocumentUploadUrl(key: string, mimeType: string) {

@@ -8,6 +8,7 @@ export * from "./company-invitations";
 export * from "./audit-logs";
 export * from "./geometry";
 export * from "./estates";
+export * from "./estate-site-plans";
 export * from "./plots";
 export * from "./restricted-areas";
 export * from "./geometry-versions";

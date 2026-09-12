@@ -1,14 +1,17 @@
 import { ORPCError } from "@orpc/server";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@asaselink/db";
-import { auditLogs, estates, geometryVersions, plots } from "@asaselink/db/schema";
+import { auditLogs, estates, estateSitePlans, geometryVersions, plots } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
+import { createDocumentUploadUrl, createDocumentViewUrl, deleteDocumentObject, estateSitePlanKey, MAX_SITE_PLAN_BYTES, SITE_PLAN_MIME_TYPES, verifyDocumentObject } from "../storage/r2";
 
 const uuid = z.string().uuid();
+const corner = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
+const overlayCoordinates = z.tuple([corner, corner, corner, corner]);
 
 export const landRouter = {
   listCompanyEstates: protectedProcedure.input(z.object({ companyId: uuid })).handler(async ({ context, input }) => {
@@ -78,6 +81,59 @@ export const landRouter = {
       FROM plots WHERE estate_id = ${input.estateId} ORDER BY plot_number
     `);
     return { ...estate, plots: plotRows.rows };
+  }),
+
+  getEstateSitePlan: protectedProcedure.input(z.object({ companyId: uuid, estateId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireCompanyAccess(clerkId, input.companyId);
+    const [plan] = await db.select().from(estateSitePlans).innerJoin(estates, eq(estateSitePlans.estateId, estates.id))
+      .where(and(eq(estateSitePlans.estateId, input.estateId), eq(estates.companyId, input.companyId), eq(estateSitePlans.status, "ready"))).limit(1);
+    if (!plan) return null;
+    return { id: plan.estate_site_plans.id, fileName: plan.estate_site_plans.fileName, imageUrl: await createDocumentViewUrl(plan.estate_site_plans.fileKey, plan.estate_site_plans.fileName), coordinates: plan.estate_site_plans.coordinates, opacity: Number(plan.estate_site_plans.opacity), alignmentLocked: plan.estate_site_plans.alignmentLocked };
+  }),
+
+  beginEstateSitePlanUpload: protectedProcedure.input(z.object({ estateId: uuid, fileName: z.string().trim().min(1).max(256), fileSize: z.number().int().positive().max(MAX_SITE_PLAN_BYTES), mimeType: z.enum(SITE_PLAN_MIME_TYPES) })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await enforceRateLimit(clerkId, "estate.site-plan.upload", 12);
+    const rows = await db.execute(sql`SELECT company_id AS "companyId", ST_XMin(Box2D(boundary)) AS west, ST_YMin(Box2D(boundary)) AS south, ST_XMax(Box2D(boundary)) AS east, ST_YMax(Box2D(boundary)) AS north FROM estates WHERE id=${input.estateId} LIMIT 1`);
+    const estate = rows.rows[0] as { companyId: string; west: number; south: number; east: number; north: number } | undefined;
+    if (!estate) throw new ORPCError("NOT_FOUND");
+    await requireCompanyPermission(clerkId, estate.companyId, "plot:write");
+    const fileKey = estateSitePlanKey(estate.companyId, input.estateId, input.fileName);
+    const coordinates = [[Number(estate.west), Number(estate.north)], [Number(estate.east), Number(estate.north)], [Number(estate.east), Number(estate.south)], [Number(estate.west), Number(estate.south)]] as [[number, number], [number, number], [number, number], [number, number]];
+    const [existing] = await db.select().from(estateSitePlans).where(eq(estateSitePlans.estateId, input.estateId)).limit(1);
+    const [plan] = existing
+      ? await db.update(estateSitePlans).set({ fileName: input.fileName, fileKey, fileSize: input.fileSize, mimeType: input.mimeType, status: "uploading", coordinates, alignmentLocked: false, updatedAt: new Date() }).where(eq(estateSitePlans.id, existing.id)).returning()
+      : await db.insert(estateSitePlans).values({ estateId: input.estateId, fileName: input.fileName, fileKey, fileSize: input.fileSize, mimeType: input.mimeType, coordinates }).returning();
+    if (!plan) throw new ORPCError("INTERNAL_SERVER_ERROR");
+    return { planId: plan.id, uploadUrl: await createDocumentUploadUrl(fileKey, input.mimeType), expiresIn: 300, previousFileKey: existing?.fileKey ?? null };
+  }),
+
+  confirmEstateSitePlanUpload: protectedProcedure.input(z.object({ planId: uuid, previousFileKey: z.string().nullable().optional() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [owned] = await db.select({ plan: estateSitePlans, companyId: estates.companyId }).from(estateSitePlans).innerJoin(estates, eq(estateSitePlans.estateId, estates.id)).where(eq(estateSitePlans.id, input.planId)).limit(1);
+    if (!owned) throw new ORPCError("NOT_FOUND");
+    const access = await requireCompanyPermission(clerkId, owned.companyId, "plot:write");
+    const object = await verifyDocumentObject(owned.plan.fileKey);
+    if (object.ContentLength !== owned.plan.fileSize || object.ContentType !== owned.plan.mimeType) throw new ORPCError("BAD_REQUEST", { message: "The uploaded plan did not match the authorized file." });
+    const [plan] = await db.update(estateSitePlans).set({ status: "ready", updatedAt: new Date() }).where(eq(estateSitePlans.id, input.planId)).returning();
+    if (input.previousFileKey && input.previousFileKey !== owned.plan.fileKey) await deleteDocumentObject(input.previousFileKey).catch(() => undefined);
+    await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.site_plan.uploaded", entityType: "estate", entityId: owned.plan.estateId, reason: "Site plan uploaded for manual plot alignment", metadata: { planId: input.planId } });
+    return { id: plan!.id, fileName: plan!.fileName, imageUrl: await createDocumentViewUrl(plan!.fileKey, plan!.fileName), coordinates: plan!.coordinates, opacity: Number(plan!.opacity), alignmentLocked: plan!.alignmentLocked };
+  }),
+
+  updateEstateSitePlanAlignment: protectedProcedure.input(z.object({ planId: uuid, coordinates: overlayCoordinates, opacity: z.number().min(0.1).max(1), alignmentLocked: z.boolean() })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [owned] = await db.select({ plan: estateSitePlans, companyId: estates.companyId }).from(estateSitePlans).innerJoin(estates, eq(estateSitePlans.estateId, estates.id)).where(eq(estateSitePlans.id, input.planId)).limit(1);
+    if (!owned) throw new ORPCError("NOT_FOUND");
+    const access = await requireCompanyPermission(clerkId, owned.companyId, "plot:write");
+    const [updated] = await db.update(estateSitePlans).set({ coordinates: input.coordinates, opacity: input.opacity.toFixed(2), alignmentLocked: input.alignmentLocked, alignedByUserId: access.user.id, updatedAt: new Date() }).where(eq(estateSitePlans.id, input.planId)).returning();
+    await db.insert(auditLogs).values({ userId: access.user.id, action: input.alignmentLocked ? "estate.site_plan.locked" : "estate.site_plan.updated", entityType: "estate", entityId: owned.plan.estateId, reason: input.alignmentLocked ? "Site plan alignment locked for plot tracing" : "Site plan alignment updated", metadata: { planId: input.planId } });
+    return { id: updated!.id, coordinates: updated!.coordinates, opacity: Number(updated!.opacity), alignmentLocked: updated!.alignmentLocked };
   }),
 
   listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
