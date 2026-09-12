@@ -9,8 +9,11 @@ export default async function EstateWorkspacePage({ params }: { params: Promise<
   const { companyId, estateId } = await params;
   try {
     const api = await getServerApiClient();
-    const estate = await api.land.getEstateWorkspace({ companyId, estateId }) as Record<string, unknown>;
+    const [estate, sitePlan] = await Promise.all([
+      api.land.getEstateWorkspace({ companyId, estateId }) as Promise<Record<string, unknown>>,
+      api.land.getEstateSitePlan({ companyId, estateId }),
+    ]);
     const plots = estate.plots as WorkspacePlot[];
-    return <EstateWorkspaceClient estateId={estateId} name={String(estate.name)} region={String(estate.region)} status={String(estate.status)} boundary={estate.boundary as Geometry} plots={plots} />;
+    return <EstateWorkspaceClient estateId={estateId} name={String(estate.name)} region={String(estate.region)} status={String(estate.status)} boundary={estate.boundary as Geometry} plots={plots} sitePlan={sitePlan} />;
   } catch { notFound(); }
 }
