@@ -31,9 +31,13 @@ async function authenticateClerkRequest(request: Request): Promise<ClerkContextA
   if (!clerkClient) return null;
 
   const requestState = await clerkClient.authenticateRequest(request, {
-    authorizedParties: [env.CORS_ORIGIN],
+    authorizedParties: allowedOrigins(),
   });
   return toClerkContextAuth(requestState.toAuth());
+}
+
+export function allowedOrigins() {
+  return env.CORS_ORIGIN.split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
 }
 
 import type { Context as HonoContext } from "hono";
