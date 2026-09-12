@@ -1,7 +1,6 @@
-import { createContext } from "@asaselink/api/context";
+import { allowedOrigins, createContext } from "@asaselink/api/context";
 import { appRouter } from "@asaselink/api/routers/index";
 import { handleClerkWebhook } from "@asaselink/api/webhooks/clerk";
-import { env } from "@asaselink/env/server";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";
@@ -25,7 +24,7 @@ app.use("/*", async (c, next) => {
 });
 
 app.use("/*", cors({
-  origin: env.CORS_ORIGIN,
+  origin: allowedOrigins(),
   allowMethods: ["GET", "POST", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
 }));
