@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "asaselink-web",
   "main": ".open-next/worker.js",
-  "compatibility_date": "2025-05-05",
+  "compatibility_date": "2026-09-11",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
     "directory": ".open-next/assets",
@@ -10,6 +10,9 @@
   },
   "images": {
     "binding": "IMAGES",
+  },
+  "observability": {
+    "enabled": true,
   },
   "r2_buckets": [
     {
