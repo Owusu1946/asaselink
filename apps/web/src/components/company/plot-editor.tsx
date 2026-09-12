@@ -123,7 +123,7 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
       const authorization = await client.land.beginEstateSitePlanUpload({ estateId, fileName: file.name, fileSize: file.size, mimeType: file.type });
       const response = await fetch(authorization.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
       if (!response.ok) throw new Error("Cloud storage rejected the upload. Check the R2 CORS policy.");
-      const confirmed = await client.land.confirmEstateSitePlanUpload({ planId: authorization.planId, previousFileKey: authorization.previousFileKey });
+      const confirmed = await client.land.confirmEstateSitePlanUpload({ planId: authorization.planId });
       setSitePlan(confirmed as EstateSitePlan); notify.success("Site plan ready", { description: "Drag the four corners to align it with the estate." });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The site plan could not be uploaded."); notify.apiError(cause, "Site plan upload failed"); }
     finally { setIsUploading(false); if (fileInputRef.current) fileInputRef.current.value = ""; }

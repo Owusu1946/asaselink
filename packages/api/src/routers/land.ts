@@ -7,7 +7,7 @@ import { protectedProcedure, publicProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
-import { createDocumentUploadUrl, createDocumentViewUrl, deleteDocumentObject, estateSitePlanKey, MAX_SITE_PLAN_BYTES, SITE_PLAN_MIME_TYPES, verifyDocumentObject } from "../storage/r2";
+import { createDocumentUploadUrl, createDocumentViewUrl, estateSitePlanKey, MAX_SITE_PLAN_BYTES, SITE_PLAN_MIME_TYPES, verifyDocumentObject } from "../storage/r2";
 
 const uuid = z.string().uuid();
 const corner = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
@@ -108,10 +108,10 @@ export const landRouter = {
       ? await db.update(estateSitePlans).set({ fileName: input.fileName, fileKey, fileSize: input.fileSize, mimeType: input.mimeType, status: "uploading", coordinates, alignmentLocked: false, updatedAt: new Date() }).where(eq(estateSitePlans.id, existing.id)).returning()
       : await db.insert(estateSitePlans).values({ estateId: input.estateId, fileName: input.fileName, fileKey, fileSize: input.fileSize, mimeType: input.mimeType, coordinates }).returning();
     if (!plan) throw new ORPCError("INTERNAL_SERVER_ERROR");
-    return { planId: plan.id, uploadUrl: await createDocumentUploadUrl(fileKey, input.mimeType), expiresIn: 300, previousFileKey: existing?.fileKey ?? null };
+    return { planId: plan.id, uploadUrl: await createDocumentUploadUrl(fileKey, input.mimeType), expiresIn: 300 };
   }),
 
-  confirmEstateSitePlanUpload: protectedProcedure.input(z.object({ planId: uuid, previousFileKey: z.string().nullable().optional() })).handler(async ({ context, input }) => {
+  confirmEstateSitePlanUpload: protectedProcedure.input(z.object({ planId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     const [owned] = await db.select({ plan: estateSitePlans, companyId: estates.companyId }).from(estateSitePlans).innerJoin(estates, eq(estateSitePlans.estateId, estates.id)).where(eq(estateSitePlans.id, input.planId)).limit(1);
@@ -120,7 +120,6 @@ export const landRouter = {
     const object = await verifyDocumentObject(owned.plan.fileKey);
     if (object.ContentLength !== owned.plan.fileSize || object.ContentType !== owned.plan.mimeType) throw new ORPCError("BAD_REQUEST", { message: "The uploaded plan did not match the authorized file." });
     const [plan] = await db.update(estateSitePlans).set({ status: "ready", updatedAt: new Date() }).where(eq(estateSitePlans.id, input.planId)).returning();
-    if (input.previousFileKey && input.previousFileKey !== owned.plan.fileKey) await deleteDocumentObject(input.previousFileKey).catch(() => undefined);
     await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.site_plan.uploaded", entityType: "estate", entityId: owned.plan.estateId, reason: "Site plan uploaded for manual plot alignment", metadata: { planId: input.planId } });
     return { id: plan!.id, fileName: plan!.fileName, imageUrl: await createDocumentViewUrl(plan!.fileKey, plan!.fileName), coordinates: plan!.coordinates, opacity: Number(plan!.opacity), alignmentLocked: plan!.alignmentLocked };
   }),
