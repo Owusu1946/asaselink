@@ -14,12 +14,11 @@ function serverUrl() {
 export async function getServerApiClient(): Promise<AppRouterClient> {
   const { getToken } = await auth();
   const token = await getToken();
-  if (!token) throw new Error("An authenticated server token is required.");
 
   return createORPCClient(
     new RPCLink({
       url: `${serverUrl()}/rpc`,
-      headers: { Authorization: `Bearer ${token}` },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     }),
   );
 }
