@@ -4,6 +4,7 @@ import type MapboxDraw from "@mapbox/mapbox-gl-draw";
 import type mapboxgl from "mapbox-gl";
 import type { FeatureCollection, Geometry } from "geojson";
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { env } from "@asaselink/env/web";
 import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
@@ -35,10 +36,8 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const mapboxRef = useRef<typeof import("mapbox-gl").default | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
   const drawAttachedRef = useRef(false);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const overlayImageUrlRef = useRef(initialSitePlan?.imageUrl);
   const alignmentHistoryRef = useRef<OverlayCoordinates[]>([]);
   const [points, setPoints] = useState<Position[]>([]);
@@ -48,6 +47,7 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
   const [isUploading, setIsUploading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [handleRevision, setHandleRevision] = useState(0);
+  const [, setViewportRevision] = useState(0);
   const [isPending, startTransition] = useTransition();
   const canDraw = !sitePlan || sitePlan.alignmentLocked;
 
@@ -87,6 +87,35 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
     alignmentHistoryRef.current = alignmentHistoryRef.current.slice(0, -1); updateCoordinates(previous, false); setHandleRevision((value) => value + 1);
   }
 
+  function beginDirectTransform(mode: "corner" | "edge" | "move" | "rotate", index: number, event: ReactPointerEvent<HTMLButtonElement>) {
+    const map = mapRef.current; const base = sitePlan?.coordinates;
+    if (!map || !base || sitePlan.alignmentLocked) return;
+    event.preventDefault();
+    alignmentHistoryRef.current = [...alignmentHistoryRef.current.slice(-19), base];
+    const rect = map.getContainer().getBoundingClientRect();
+    const start = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    const projected = base.map((coordinate) => map.project(coordinate));
+    const center = projected.reduce((total, point) => ({ x: total.x + point.x / 4, y: total.y + point.y / 4 }), { x: 0, y: 0 });
+    const startAngle = Math.atan2(start.y - center.y, start.x - center.x);
+    const edgePairs = [[0, 1], [1, 2], [2, 3], [3, 0]] as const;
+    map.dragPan.disable();
+    const onMove = (pointer: PointerEvent) => {
+      const current = { x: pointer.clientX - rect.left, y: pointer.clientY - rect.top };
+      const dx = current.x - start.x; const dy = current.y - start.y;
+      let next = projected.map((point) => ({ x: point.x, y: point.y }));
+      if (mode === "corner") next[index] = current;
+      if (mode === "edge") { const pair = edgePairs[index]!; next = next.map((point, pointIndex) => pointIndex === pair[0] || pointIndex === pair[1] ? { x: point.x + dx, y: point.y + dy } : point); }
+      if (mode === "move") next = next.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+      if (mode === "rotate") {
+        const angle = Math.atan2(current.y - center.y, current.x - center.x) - startAngle;
+        next = next.map((point) => { const x = point.x - center.x; const y = point.y - center.y; return { x: center.x + x * Math.cos(angle) - y * Math.sin(angle), y: center.y + x * Math.sin(angle) + y * Math.cos(angle) }; });
+      }
+      updateCoordinates(asOverlay(next.map((point) => { const lngLat = map.unproject([point.x, point.y]); return [lngLat.lng, lngLat.lat]; })), false);
+    };
+    const onUp = () => { window.removeEventListener("pointermove", onMove); map.dragPan.enable(); setHandleRevision((value) => value + 1); };
+    window.addEventListener("pointermove", onMove); window.addEventListener("pointerup", onUp, { once: true });
+  }
+
   useEffect(() => {
     const source = mapRef.current?.getSource("existing-plots") as mapboxgl.GeoJSONSource | undefined;
     source?.setData({ type: "FeatureCollection", features: savedPlots.map((plot) => ({ type: "Feature", properties: { number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) });
@@ -98,13 +127,13 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
     let resizeObserver: ResizeObserver | undefined;
     void Promise.all([import("mapbox-gl"), import("@mapbox/mapbox-gl-draw")]).then(([{ default: mapbox }, { default: MapboxDrawControl }]) => {
       if (disposed || !containerRef.current) return;
-      mapboxRef.current = mapbox;
       mapbox.accessToken = env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
       const positions = geometryPositions(estateBoundary);
       const bounds = new mapbox.LngLatBounds(positions[0] as [number, number], positions[0] as [number, number]);
       positions.forEach((position) => bounds.extend(position as [number, number]));
       const map = new mapbox.Map({ container: containerRef.current, style: "mapbox://styles/mapbox/satellite-streets-v12", bounds, fitBoundsOptions: { padding: 52, maxZoom: 19 }, attributionControl: false });
       mapRef.current = map;
+      map.on("move", () => setViewportRevision((value) => value + 1));
       resizeObserver = new ResizeObserver(() => map.resize()); resizeObserver.observe(containerRef.current); requestAnimationFrame(() => map.resize());
       map.addControl(new mapbox.NavigationControl(), "top-right"); map.addControl(new mapbox.AttributionControl({ compact: true }), "bottom-right");
       const draw = new MapboxDrawControl({ displayControlsDefault: false, controls: { polygon: true, trash: true }, defaultMode: "draw_polygon" });
@@ -134,7 +163,7 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
         setMapReady(true);
       });
     }).catch(() => setError("The satellite editor could not load."));
-    return () => { disposed = true; resizeObserver?.disconnect(); markersRef.current.forEach((marker) => marker.remove()); drawRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
+    return () => { disposed = true; resizeObserver?.disconnect(); drawRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
   }, [estateBoundary]);
 
   useEffect(() => {
@@ -158,36 +187,6 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
     map.setLayoutProperty("site-plan-controls-line", "visibility", sitePlan.alignmentLocked ? "none" : "visible");
     map.setPaintProperty("site-plan-layer", "raster-opacity", sitePlan.opacity);
   }, [sitePlan?.imageUrl, sitePlan?.coordinates, sitePlan?.opacity, mapReady]);
-
-  useEffect(() => {
-    markersRef.current.forEach((marker) => marker.remove()); markersRef.current = [];
-    const map = mapRef.current; const mapbox = mapboxRef.current;
-    if (!map?.loaded() || !mapbox || !sitePlan?.coordinates || sitePlan.alignmentLocked) return;
-    const original = sitePlan.coordinates;
-    const makeHandle = (label: string, kind: "corner" | "edge" | "move" | "rotate", symbol = "") => { const element = document.createElement("button"); element.type = "button"; element.title = label; element.setAttribute("aria-label", label); element.textContent = symbol; const size = kind === "move" || kind === "rotate" ? 48 : kind === "corner" ? 36 : 30; const background = kind === "corner" ? "#2563eb" : kind === "move" ? "#d97706" : kind === "rotate" ? "#7c3aed" : "#ffffff"; const color = kind === "edge" ? "#111827" : "#ffffff"; Object.assign(element.style, { width: `${size}px`, height: `${size}px`, display: "grid", placeItems: "center", padding: "0", borderRadius: kind === "edge" ? "9px" : "999px", border: "3px solid white", background, color, fontSize: kind === "corner" ? "15px" : "22px", fontWeight: "800", lineHeight: "1", boxShadow: "0 3px 16px rgba(0,0,0,.6)", cursor: "grab", touchAction: "none", pointerEvents: "auto", zIndex: "30" }); return element; };
-    const remember = () => { alignmentHistoryRef.current = [...alignmentHistoryRef.current.slice(-19), original]; };
-    const corners = original.map((position, index) => {
-      const cornerSymbols = ["↖", "↗", "↘", "↙"];
-      const marker = new mapbox.Marker({ element: makeHandle(`Drag to warp corner ${index + 1}`, "corner", cornerSymbols[index]), draggable: true }).setLngLat(position).addTo(map);
-      marker.on("dragstart", remember); marker.on("drag", () => setSitePlan((current) => current?.coordinates ? { ...current, coordinates: asOverlay(current.coordinates.map((item, itemIndex) => itemIndex === index ? [marker.getLngLat().lng, marker.getLngLat().lat] : item)) } : current)); marker.on("dragend", () => setHandleRevision((value) => value + 1));
-      return marker;
-    });
-    const edgePairs = [[0, 1], [1, 2], [2, 3], [3, 0]] as const;
-    const edges = edgePairs.map(([first, second], index) => {
-      const start = map.project(original[first]); const end = map.project(original[second]); const midpoint = map.unproject([(start.x + end.x) / 2, (start.y + end.y) / 2]);
-      const marker = new mapbox.Marker({ element: makeHandle(`Drag to stretch edge ${index + 1}`, "edge", index % 2 === 0 ? "↕" : "↔"), draggable: true }).setLngLat(midpoint).addTo(map); let dragStart = { x: 0, y: 0 };
-      marker.on("dragstart", () => { remember(); dragStart = map.project(marker.getLngLat()); }); marker.on("drag", () => { const now = map.project(marker.getLngLat()); const dx = now.x - dragStart.x; const dy = now.y - dragStart.y; setSitePlan((current) => current?.coordinates ? { ...current, coordinates: asOverlay(current.coordinates.map((item, itemIndex) => { if (itemIndex !== first && itemIndex !== second) return item; const p = map.project(item); const moved = map.unproject([p.x + dx, p.y + dy]); return [moved.lng, moved.lat]; })) } : current); dragStart = now; }); marker.on("dragend", () => setHandleRevision((value) => value + 1));
-      return marker;
-    });
-    const projected = original.map((position) => map.project(position)); const centerPoint = projected.reduce((total, point) => ({ x: total.x + point.x / 4, y: total.y + point.y / 4 }), { x: 0, y: 0 });
-    const centerMarker = new mapbox.Marker({ element: makeHandle("Drag to move the entire plan", "move", "✥"), draggable: true }).setLngLat(map.unproject([centerPoint.x, centerPoint.y])).addTo(map); let centerStart = centerPoint;
-    centerMarker.on("dragstart", () => { remember(); centerStart = map.project(centerMarker.getLngLat()); }); centerMarker.on("drag", () => { const now = map.project(centerMarker.getLngLat()); const dx = now.x - centerStart.x; const dy = now.y - centerStart.y; setSitePlan((current) => current?.coordinates ? { ...current, coordinates: transformInScreenSpace(map, current.coordinates, (point) => ({ x: point.x + dx, y: point.y + dy })) } : current); centerStart = now; }); centerMarker.on("dragend", () => setHandleRevision((value) => value + 1));
-    const topMid = { x: (projected[0]!.x + projected[1]!.x) / 2, y: (projected[0]!.y + projected[1]!.y) / 2 }; const away = { x: topMid.x - centerPoint.x, y: topMid.y - centerPoint.y }; const length = Math.hypot(away.x, away.y) || 1; const rotatePoint = { x: topMid.x + away.x / length * 42, y: topMid.y + away.y / length * 42 };
-    const rotateMarker = new mapbox.Marker({ element: makeHandle("Drag around the plan to rotate", "rotate", "↻"), draggable: true }).setLngLat(map.unproject([rotatePoint.x, rotatePoint.y])).addTo(map); let rotationStart = 0; let rotationBase = original;
-    rotateMarker.on("dragstart", () => { remember(); rotationBase = sitePlan.coordinates!; const p = map.project(rotateMarker.getLngLat()); rotationStart = Math.atan2(p.y - centerPoint.y, p.x - centerPoint.x); }); rotateMarker.on("drag", () => { const p = map.project(rotateMarker.getLngLat()); const angle = Math.atan2(p.y - centerPoint.y, p.x - centerPoint.x) - rotationStart; setSitePlan((current) => current ? { ...current, coordinates: transformInScreenSpace(map, rotationBase, (point, center) => { const x = point.x - center.x; const y = point.y - center.y; return { x: center.x + x * Math.cos(angle) - y * Math.sin(angle), y: center.y + x * Math.sin(angle) + y * Math.cos(angle) }; }) } : current); }); rotateMarker.on("dragend", () => setHandleRevision((value) => value + 1));
-    markersRef.current = [...corners, ...edges, centerMarker, rotateMarker];
-    return () => { markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; };
-  }, [sitePlan?.id, sitePlan?.alignmentLocked, mapReady, handleRevision]);
 
   function resetDraft() { drawRef.current?.deleteAll(); drawRef.current?.changeMode("draw_polygon"); setPoints([]); }
 
@@ -227,11 +226,22 @@ export function PlotEditor({ estateId, estateBoundary, plots, initialSitePlan, o
     });
   }
 
+  const handleGeometry = (() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !sitePlan?.coordinates || sitePlan.alignmentLocked) return null;
+    const corners = sitePlan.coordinates.map((coordinate) => map.project(coordinate));
+    const center = corners.reduce((total, point) => ({ x: total.x + point.x / 4, y: total.y + point.y / 4 }), { x: 0, y: 0 });
+    const edges = [[0, 1], [1, 2], [2, 3], [3, 0]].map(([first, second]) => ({ x: (corners[first]!.x + corners[second]!.x) / 2, y: (corners[first]!.y + corners[second]!.y) / 2 }));
+    const top = edges[0]!; const outward = { x: top.x - center.x, y: top.y - center.y }; const length = Math.hypot(outward.x, outward.y) || 1;
+    const rotate = { x: top.x + outward.x / length * 64, y: top.y + outward.y / length * 64 };
+    return { corners, edges, center, rotate, connector: { length: Math.hypot(rotate.x - top.x, rotate.y - top.y), angle: Math.atan2(rotate.y - top.y, rotate.x - top.x) } };
+  })();
+
   return <div className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3"><div><p className="text-sm font-semibold">Site plan overlay</p><p className="text-xs text-muted-foreground">Visual guide only. PostGIS remains the source of truth.</p></div><div className="flex flex-wrap items-center gap-2">
       {sitePlan ? <><span className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium">{sitePlan.alignmentLocked ? "Plot drawing mode" : "Alignment mode"}</span><label className="flex items-center gap-2 text-xs">Opacity<input aria-label="Site plan opacity" type="range" min="0.1" max="1" step="0.05" value={sitePlan.opacity} onChange={(event) => setSitePlan({ ...sitePlan, opacity: Number(event.target.value) })} /></label>{sitePlan.alignmentLocked ? <Button type="button" variant="outline" size="sm" onClick={() => saveAlignment(false)} disabled={isPending}>Unlock alignment</Button> : <><Button type="button" variant="outline" size="sm" onClick={() => saveAlignment(false)} disabled={isPending}>Save alignment</Button><Button type="button" size="sm" onClick={() => saveAlignment(true)} disabled={isPending}>Lock & trace plots</Button></>}</> : null}
       <input ref={fileInputRef} className="sr-only" type="file" accept="image/png,image/jpeg" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadPlan(file); }} /><Button type="button" variant={sitePlan ? "outline" : "default"} size="sm" disabled={isUploading} onClick={() => fileInputRef.current?.click()}>{isUploading ? "Uploading…" : sitePlan ? "Replace plan" : "Upload plan"}</Button>
     </div></div>
-    <div className="grid overflow-hidden rounded-2xl border border-border bg-card lg:grid-cols-[20rem_minmax(0,1fr)]"><form action={create} className="order-2 space-y-5 p-5 lg:order-1"><div><h2 className="text-xl font-semibold">{canDraw ? "Add a surveyed plot" : "Align the site plan"}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{canDraw ? "Trace one plot using as many corners as its surveyed shape requires. Double-click to finish, then drag any vertex to align it precisely." : "Use the large controls attached directly to the plan: amber moves, violet rotates, white stretches edges, and blue warps corners."}</p></div><label className="block text-sm font-medium">Plot number<input required name="plotNumber" disabled={!canDraw} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 disabled:opacity-50" placeholder="A-104" /></label><label className="block text-sm font-medium">Price (GHS)<input required name="price" disabled={!canDraw} type="number" min="0" step="0.01" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 disabled:opacity-50" /></label><div className="min-h-11 rounded-xl bg-muted px-3 py-2 text-sm"><div className="flex items-center justify-between"><span>{!canDraw ? "Lock alignment to start tracing" : points.length >= 3 ? `${points.length} editable corners ready` : "Draw and finish the plot boundary"}</span><button type="button" onClick={resetDraft} disabled={!points.length} className="font-semibold disabled:opacity-40">Redraw</button></div>{points.length >= 3 ? <p className="mt-1 text-xs text-muted-foreground">Drag white vertices to refine the demarcation before saving.</p> : null}</div>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}<Button type="submit" className="h-12 w-full rounded-xl" disabled={!canDraw || points.length < 3 || isPending}>{isPending ? "Validating…" : "Add plot"}</Button></form><div className="relative order-1 min-h-[24rem] bg-[#17211d] lg:order-2 lg:min-h-[40rem]"><div ref={containerRef} className="absolute inset-0 h-full w-full" aria-label="Satellite plot drawing editor" />{sitePlan && !sitePlan.alignmentLocked ? <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-xl border border-white/20 bg-black/75 p-1.5 text-white shadow-xl backdrop-blur-md" aria-label="Fine alignment controls"><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={() => transformPlan("rotate-left")}>−2°</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={() => transformPlan("rotate-right")}>+2°</button><button type="button" className="size-9 rounded-lg text-lg hover:bg-white/15" onClick={() => transformPlan("shrink")} aria-label="Scale plan down">−</button><button type="button" className="size-9 rounded-lg text-lg hover:bg-white/15" onClick={() => transformPlan("grow")} aria-label="Scale plan up">+</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15 disabled:opacity-40" onClick={undoAlignment} disabled={!alignmentHistoryRef.current.length}>Undo</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={fitPlanToEstate}>Fit</button></div> : null}<p className="pointer-events-none absolute bottom-4 left-4 rounded-full bg-black/75 px-3 py-2 text-xs text-white">{canDraw ? "Click corners · double-click to finish · drag to refine" : "Drag controls on the plan · toolbar is for fine adjustments"}</p></div></div>
+    <div className="grid overflow-hidden rounded-2xl border border-border bg-card lg:grid-cols-[20rem_minmax(0,1fr)]"><form action={create} className="order-2 space-y-5 p-5 lg:order-1"><div><h2 className="text-xl font-semibold">{canDraw ? "Add a surveyed plot" : "Align the site plan"}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{canDraw ? "Trace one plot using as many corners as its surveyed shape requires. Double-click to finish, then drag any vertex to align it precisely." : "Use the large controls attached directly to the plan: amber moves, violet rotates, white stretches edges, and blue warps corners."}</p></div><label className="block text-sm font-medium">Plot number<input required name="plotNumber" disabled={!canDraw} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 disabled:opacity-50" placeholder="A-104" /></label><label className="block text-sm font-medium">Price (GHS)<input required name="price" disabled={!canDraw} type="number" min="0" step="0.01" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 disabled:opacity-50" /></label><div className="min-h-11 rounded-xl bg-muted px-3 py-2 text-sm"><div className="flex items-center justify-between"><span>{!canDraw ? "Lock alignment to start tracing" : points.length >= 3 ? `${points.length} editable corners ready` : "Draw and finish the plot boundary"}</span><button type="button" onClick={resetDraft} disabled={!points.length} className="font-semibold disabled:opacity-40">Redraw</button></div>{points.length >= 3 ? <p className="mt-1 text-xs text-muted-foreground">Drag white vertices to refine the demarcation before saving.</p> : null}</div>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}<Button type="submit" className="h-12 w-full rounded-xl" disabled={!canDraw || points.length < 3 || isPending}>{isPending ? "Validating…" : "Add plot"}</Button></form><div className="relative order-1 min-h-[24rem] overflow-hidden bg-[#17211d] lg:order-2 lg:min-h-[40rem]"><div ref={containerRef} className="absolute inset-0 h-full w-full" aria-label="Satellite plot drawing editor" />{handleGeometry ? <div className="pointer-events-none absolute inset-0 z-30" aria-label="Direct site plan transform controls"><div className="absolute h-0.5 bg-violet-400" style={{ left: handleGeometry.edges[0]!.x, top: handleGeometry.edges[0]!.y, width: handleGeometry.connector.length, transform: `rotate(${handleGeometry.connector.angle}rad)`, transformOrigin: "left center" }} />{handleGeometry.corners.map((point, index) => <button key={`corner-${index}`} type="button" title={`Warp corner ${index + 1}`} aria-label={`Drag to warp corner ${index + 1}`} onPointerDown={(event) => beginDirectTransform("corner", index, event)} className="pointer-events-auto absolute grid size-11 touch-none cursor-grab place-items-center rounded-full border-[3px] border-white bg-blue-600 text-lg font-black text-white shadow-xl active:cursor-grabbing" style={{ left: point.x, top: point.y, transform: "translate(-50%, -50%)" }}>{["↖", "↗", "↘", "↙"][index]}</button>)}{handleGeometry.edges.map((point, index) => <button key={`edge-${index}`} type="button" title={`Stretch edge ${index + 1}`} aria-label={`Drag to stretch edge ${index + 1}`} onPointerDown={(event) => beginDirectTransform("edge", index, event)} className="pointer-events-auto absolute grid size-11 touch-none cursor-grab place-items-center rounded-xl border-[3px] border-slate-900 bg-white text-lg font-black text-slate-950 shadow-xl active:cursor-grabbing" style={{ left: point.x, top: point.y, transform: "translate(-50%, -50%)" }}>{index % 2 === 0 ? "↕" : "↔"}</button>)}<button type="button" title="Move entire plan" aria-label="Drag to move the entire plan" onPointerDown={(event) => beginDirectTransform("move", 0, event)} className="pointer-events-auto absolute grid size-14 touch-none cursor-move place-items-center rounded-full border-[3px] border-white bg-amber-600 text-xl font-black text-white shadow-xl" style={{ left: handleGeometry.center.x, top: handleGeometry.center.y, transform: "translate(-50%, -50%)" }}>✥</button><button type="button" title="Rotate plan" aria-label="Drag to rotate the plan" onPointerDown={(event) => beginDirectTransform("rotate", 0, event)} className="pointer-events-auto absolute grid size-12 touch-none cursor-grab place-items-center rounded-full border-[3px] border-white bg-violet-600 text-2xl font-black text-white shadow-xl active:cursor-grabbing" style={{ left: handleGeometry.rotate.x, top: handleGeometry.rotate.y, transform: "translate(-50%, -50%)" }}>↻</button></div> : null}{sitePlan && !sitePlan.alignmentLocked ? <div className="absolute left-3 top-3 z-40 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-1 rounded-xl border border-white/20 bg-black/75 p-1.5 text-white shadow-xl backdrop-blur-md" aria-label="Fine alignment controls"><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={() => transformPlan("rotate-left")}>−2°</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={() => transformPlan("rotate-right")}>+2°</button><button type="button" className="size-9 rounded-lg text-lg hover:bg-white/15" onClick={() => transformPlan("shrink")} aria-label="Scale plan down">−</button><button type="button" className="size-9 rounded-lg text-lg hover:bg-white/15" onClick={() => transformPlan("grow")} aria-label="Scale plan up">+</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15 disabled:opacity-40" onClick={undoAlignment} disabled={!alignmentHistoryRef.current.length}>Undo</button><button type="button" className="h-9 rounded-lg px-3 text-xs font-semibold hover:bg-white/15" onClick={fitPlanToEstate}>Fit</button></div> : null}<p className="pointer-events-none absolute bottom-4 left-4 z-40 rounded-full bg-black/75 px-3 py-2 text-xs text-white">{canDraw ? "Click corners · double-click to finish · drag to refine" : "Blue warps · white stretches · amber moves · violet rotates"}</p></div></div>
   </div>;
 }
