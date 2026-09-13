@@ -18,7 +18,8 @@ export default async function HomePage() {
     // The public page remains usable while the API is temporarily unavailable.
   }
   const estates: EstateListing[] = published.map((estate, index) => ({
-    id: String(estate.slug),
+    id: String(estate.id),
+    slug: String(estate.slug),
     name: String(estate.name),
     location: estate.district ? String(estate.district) : String(estate.region),
     region: String(estate.region),

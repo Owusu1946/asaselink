@@ -7,6 +7,7 @@ import { landRouter } from "./land";
 import { reservationRouter } from "./reservations";
 import { teamRouter } from "./team";
 import { alertRouter } from "./alerts";
+import { buyerRouter } from "./buyer";
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -19,6 +20,7 @@ export const appRouter = {
   reservations: reservationRouter,
   team: teamRouter,
   alerts: alertRouter,
+  buyer: buyerRouter,
 };
 
 export type AppRouter = typeof appRouter;

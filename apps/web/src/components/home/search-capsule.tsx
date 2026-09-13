@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Search01Icon,
@@ -40,13 +40,21 @@ const BUDGET_RANGES = [
 export interface SearchCriteria { location: string; type: string; budget: string; center?: [number, number]; region?: string; district?: string }
 interface SearchCapsuleProps {
   onSearch?: (criteria: SearchCriteria) => void;
+  initialCriteria?: SearchCriteria | null;
 }
 
-export function SearchCapsule({ onSearch }: SearchCapsuleProps) {
+export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps) {
   const [activeTab, setActiveTab] = useState<"location" | "type" | "budget" | null>(null);
   const [selectedLocation, setSelectedLocation] = useState("All of Ghana");
   const [selectedType, setSelectedType] = useState("All Types");
   const [selectedBudget, setSelectedBudget] = useState("Any Budget");
+
+  React.useEffect(() => {
+    if (!initialCriteria) return;
+    setSelectedLocation(initialCriteria.location);
+    setSelectedType(initialCriteria.type);
+    setSelectedBudget(initialCriteria.budget);
+  }, [initialCriteria]);
 
   const handleExecuteSearch = (e: React.FormEvent) => {
     e.preventDefault();

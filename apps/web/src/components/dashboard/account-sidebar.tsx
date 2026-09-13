@@ -26,46 +26,15 @@ import {
   Notification01Icon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@asaselink/ui/lib/utils";
+import { client } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 interface RecentSearch {
   id: string;
   title: string;
   location: string;
-  dateGroup: "Today" | "Previous 7 Days";
+  criteria: { location: string; type: string; budget: string };
 }
-
-const RECENT_EXPLORATIONS: RecentSearch[] = [
-  {
-    id: "1",
-    title: "East Legon Hills — Block C",
-    location: "Greater Accra",
-    dateGroup: "Today",
-  },
-  {
-    id: "2",
-    title: "Airport Hills 0.5 Acre Residential",
-    location: "Accra Metropolitan",
-    dateGroup: "Today",
-  },
-  {
-    id: "3",
-    title: "Prampram Beachfront Parcel #14",
-    location: "Ningo-Prampram",
-    dateGroup: "Previous 7 Days",
-  },
-  {
-    id: "4",
-    title: "Oyibi Serviced Plots - Phase 2",
-    location: "Kpone-Katamanso",
-    dateGroup: "Previous 7 Days",
-  },
-  {
-    id: "5",
-    title: "Afienya Mixed-Use Masterplan",
-    location: "Shai-Osudoku",
-    dateGroup: "Previous 7 Days",
-  },
-];
 
 interface AccountSidebarProps {
   collapsed: boolean;
@@ -85,12 +54,14 @@ export function AccountSidebar({
   onSelectSearch,
 }: AccountSidebarProps) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { theme, setTheme } = useTheme();
 
   const [searchFilter, setSearchFilter] = React.useState("");
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [activeItemMenu, setActiveItemMenu] = React.useState<string | null>(null);
+  const [counts, setCounts] = React.useState({ reservations: 0, saved: 0, documents: 0 });
+  const [recentExplorations, setRecentExplorations] = React.useState<RecentSearch[]>([]);
 
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -106,11 +77,29 @@ export function AccountSidebar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const refreshBuyerData = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await client.buyer.overview();
+      setCounts(data.counts);
+      setRecentExplorations(data.recent as RecentSearch[]);
+    } catch {
+      // Global query and page error states handle actionable failures.
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    if (!isLoaded || !user) return;
+    void refreshBuyerData();
+    window.addEventListener("asaselink:buyer-data-changed", refreshBuyerData);
+    return () => window.removeEventListener("asaselink:buyer-data-changed", refreshBuyerData);
+  }, [isLoaded, user, refreshBuyerData]);
+
   const displayName = user?.fullName || user?.firstName || "Verified Buyer";
   const displayEmail = user?.primaryEmailAddress?.emailAddress || "buyer@asaselink.com";
   const userInitials = (user?.firstName?.[0] || "B") + (user?.lastName?.[0] || "");
 
-  const filteredExplorations = RECENT_EXPLORATIONS.filter((item) =>
+  const filteredExplorations = recentExplorations.filter((item) =>
     item.title.toLowerCase().includes(searchFilter.toLowerCase()),
   );
 
@@ -125,14 +114,14 @@ export function AccountSidebar({
       href: "/account/reservations",
       label: "My Reservations",
       icon: Location01Icon,
-      badge: "0",
+      badge: String(counts.reservations),
       active: pathname === "/account/reservations",
     },
     {
       href: "/account/saved",
       label: "Saved Parcels",
       icon: Bookmark01Icon,
-      badge: "3",
+      badge: String(counts.saved),
       active: pathname === "/account/saved",
     },
     {
@@ -145,7 +134,7 @@ export function AccountSidebar({
       href: "/account/documents",
       label: "Document Vault",
       icon: File01Icon,
-      badge: "2",
+      badge: String(counts.documents),
       active: pathname === "/account/documents",
     },
     {
@@ -315,24 +304,27 @@ export function AccountSidebar({
                           className="absolute right-2 top-8 z-30 w-36 rounded-xl border border-border bg-card p-1 shadow-lg text-xs animate-in fade-in zoom-in-95 duration-100"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            type="button"
+                          <Link
+                            href={`/?location=${encodeURIComponent(item.criteria.location)}&type=${encodeURIComponent(item.criteria.type)}&budget=${encodeURIComponent(item.criteria.budget)}#explore-lands`}
                             onClick={() => setActiveItemMenu(null)}
-                            className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
+                            className="block w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
                           >
-                            Bookmark parcel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveItemMenu(null)}
-                            className="w-full rounded-md px-2 py-1.5 text-left text-foreground hover:bg-muted transition-colors"
-                          >
-                            Share survey link
-                          </button>
+                            Run search again
+                          </Link>
                           <div className="my-1 border-t border-border" />
                           <button
                             type="button"
-                            onClick={() => setActiveItemMenu(null)}
+                            onClick={async () => {
+                              setActiveItemMenu(null);
+                              setRecentExplorations((items) => items.filter((entry) => entry.id !== item.id));
+                              try {
+                                await client.buyer.removeExploration({ id: item.id });
+                                notify.success("Exploration removed");
+                              } catch (error) {
+                                void refreshBuyerData();
+                                notify.apiError(error, "Could not remove exploration");
+                              }
+                            }}
                             className="w-full rounded-md px-2 py-1.5 text-left text-destructive hover:bg-destructive/10 transition-colors"
                           >
                             Remove from list
@@ -342,6 +334,11 @@ export function AccountSidebar({
                     </div>
                   );
                 })}
+                {!filteredExplorations.length && (
+                  <p className="px-2.5 py-3 text-[11px] leading-5 text-muted-foreground">
+                    Your searches will appear here.
+                  </p>
+                )}
               </div>
             </div>
           )}
