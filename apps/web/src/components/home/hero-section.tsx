@@ -80,9 +80,10 @@ const HERO_SLIDES: HeroSlide[] = [
 
 interface HeroSectionProps {
   onSearchCriteriaChange?: (criteria: SearchCriteria) => void;
+  initialSearchCriteria?: SearchCriteria | null;
 }
 
-export function HeroSection({ onSearchCriteriaChange }: HeroSectionProps) {
+export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: HeroSectionProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -215,7 +216,7 @@ export function HeroSection({ onSearchCriteriaChange }: HeroSectionProps) {
 
             {/* Floating Search Capsule */}
             <div className="mt-7 sm:mt-9">
-              <SearchCapsule onSearch={onSearchCriteriaChange} />
+              <SearchCapsule onSearch={onSearchCriteriaChange} initialCriteria={initialSearchCriteria} />
             </div>
           </div>
 

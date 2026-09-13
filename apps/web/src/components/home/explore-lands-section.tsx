@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   FavouriteIcon,
@@ -14,9 +16,12 @@ import {
 } from "@hugeicons/core-free-icons";
 import { LandAlertPrompt } from "./land-alert-prompt";
 import type { SearchCriteria } from "./search-capsule";
+import { client } from "@/utils/orpc";
+import { notify } from "@/utils/notify";
 
 export interface EstateListing {
   id: string;
+  slug: string;
   name: string;
   location: string;
   region: string;
@@ -33,6 +38,7 @@ export interface EstateListing {
 const ESTATES_DATA: EstateListing[] = [
   {
     id: "east-legon-hills-reserve",
+    slug: "east-legon-hills-reserve",
     name: "The Reserve at Hills",
     location: "East Legon Hills",
     region: "Greater Accra",
@@ -47,6 +53,7 @@ const ESTATES_DATA: EstateListing[] = [
   },
   {
     id: "prampram-oceanside",
+    slug: "prampram-oceanside",
     name: "Oceanside Sanctuary",
     location: "Prampram",
     region: "Greater Accra",
@@ -61,6 +68,7 @@ const ESTATES_DATA: EstateListing[] = [
   },
   {
     id: "aburi-ridge-terraces",
+    slug: "aburi-ridge-terraces",
     name: "The Ridge Terraces",
     location: "Aburi",
     region: "Eastern Region",
@@ -75,6 +83,7 @@ const ESTATES_DATA: EstateListing[] = [
   },
   {
     id: "cantonments-embassy-enclave",
+    slug: "cantonments-embassy-enclave",
     name: "The Embassy Enclave",
     location: "Cantonments",
     region: "Greater Accra",
@@ -89,6 +98,7 @@ const ESTATES_DATA: EstateListing[] = [
   },
   {
     id: "shai-hills-savanna",
+    slug: "shai-hills-savanna",
     name: "Shai Savanna Reserve",
     location: "Shai Hills",
     region: "Greater Accra",
@@ -103,6 +113,7 @@ const ESTATES_DATA: EstateListing[] = [
   },
   {
     id: "tema-comm-25-emerald",
+    slug: "tema-comm-25-emerald",
     name: "Emerald Gardens",
     location: "Tema Community 25",
     region: "Greater Accra",
@@ -132,13 +143,42 @@ interface ExploreLandsSectionProps {
 }
 
 export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: ExploreLandsSectionProps) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string>("All Lands");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    client.buyer.listSavedIds().then((rows) => {
+      setFavorites(Object.fromEntries(rows.map(({ estateId }) => [estateId, true])));
+    }).catch(() => undefined);
+  }, [isLoaded, isSignedIn]);
+
+  const toggleFavorite = async (e: React.MouseEvent, estate: EstateListing) => {
     e.preventDefault();
     e.stopPropagation();
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
+    if (!isSignedIn) {
+      notify.info("Sign in to save estates", { description: "Your saved parcels will stay synced across devices." });
+      router.push(`/sign-in?redirect_url=${encodeURIComponent("/#explore-lands")}`);
+      return;
+    }
+    const next = !favorites[estate.id];
+    setSavingId(estate.id);
+    setFavorites((prev) => ({ ...prev, [estate.id]: next }));
+    try {
+      await client.buyer.setSaved({ estateId: estate.id, saved: next });
+      window.dispatchEvent(new Event("asaselink:buyer-data-changed"));
+      notify.success(next ? "Estate saved" : "Estate removed", {
+        description: next ? `${estate.name} is now in Saved Parcels.` : `${estate.name} was removed from Saved Parcels.`,
+      });
+    } catch (error) {
+      setFavorites((prev) => ({ ...prev, [estate.id]: !next }));
+      notify.apiError(error, "Could not update saved estates");
+    } finally {
+      setSavingId(null);
+    }
   };
 
   const filteredEstates = useMemo(() => {
@@ -254,7 +294,7 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
                   key={estate.id}
                   className="group relative flex flex-col cursor-pointer transition-transform duration-200"
                 >
-                  <Link href={`/estates/${estate.id}`} aria-label={`View ${estate.name}`} className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4" />
+                  <Link href={`/estates/${estate.slug}`} aria-label={`View ${estate.name}`} className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4" />
                   {/* Image Container with Airbnb 4:3 Aspect Ratio */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
                     <Image
@@ -277,14 +317,16 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
                     {/* Top Right: Favorite Action */}
                     <button
                       type="button"
-                      onClick={(e) => toggleFavorite(e, estate.id)}
-                      aria-label={`Save ${estate.name} to favorites`}
+                      onClick={(e) => void toggleFavorite(e, estate)}
+                      disabled={savingId === estate.id}
+                      aria-label={isFav ? `Remove ${estate.name} from saved parcels` : `Save ${estate.name}`}
+                      aria-pressed={isFav}
                       className="absolute right-3 top-3 z-20 flex size-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
                     >
                       <HugeiconsIcon
                         icon={FavouriteIcon}
                         size={16}
-                        className={isFav ? "text-red-500 fill-red-500" : "text-white"}
+                        className={isFav ? "fill-brand-gold-400 text-brand-gold-400" : "text-white"}
                       />
                     </button>
 

@@ -71,6 +71,13 @@
       "when": 1789271956661,
       "tag": "0009_short_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789322745186,
+      "tag": "0010_loose_gorgon",
+      "breakpoints": true
     }
   ]
 }

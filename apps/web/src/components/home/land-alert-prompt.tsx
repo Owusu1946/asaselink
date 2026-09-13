@@ -37,6 +37,7 @@ export function LandAlertPrompt({ criteria }: { criteria: SearchCriteria }) {
     startTransition(async () => {
       try {
         await client.alerts.create({ locationLabel: criteria.location, region: criteria.region, district: criteria.district, center: criteria.center, radiusKm, channels: [...(email ? ["email" as const] : []), ...(sms ? ["sms" as const] : [])], frequency, ...budgetValues(criteria.budget) });
+        window.dispatchEvent(new Event("asaselink:buyer-data-changed"));
         setCreated(true);
         notify.success("Land alert created", { description: "Mock notifications are ready for matching plots." });
       } catch (cause) { notify.apiError(cause, "Land alert could not be created"); }
