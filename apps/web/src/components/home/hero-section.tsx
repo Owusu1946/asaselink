@@ -9,7 +9,7 @@ import {
   Location01Icon,
   ShieldCheckIcon,
 } from "@hugeicons/core-free-icons";
-import { SearchCapsule } from "./search-capsule";
+import { SearchCapsule, type SearchCriteria } from "./search-capsule";
 
 export interface HeroSlide {
   id: string;
@@ -79,7 +79,7 @@ const HERO_SLIDES: HeroSlide[] = [
 ];
 
 interface HeroSectionProps {
-  onSearchCriteriaChange?: (criteria: { location: string; type: string; budget: string }) => void;
+  onSearchCriteriaChange?: (criteria: SearchCriteria) => void;
 }
 
 export function HeroSection({ onSearchCriteriaChange }: HeroSectionProps) {

@@ -23,6 +23,7 @@ import {
   Sun01Icon,
   Moon02Icon,
   CheckmarkCircle02Icon,
+  Notification01Icon,
 } from "@hugeicons/core-free-icons";
 import { cn } from "@asaselink/ui/lib/utils";
 
@@ -133,6 +134,12 @@ export function AccountSidebar({
       icon: Bookmark01Icon,
       badge: "3",
       active: pathname === "/account/saved",
+    },
+    {
+      href: "/account/alerts",
+      label: "Land Alerts",
+      icon: Notification01Icon,
+      active: pathname === "/account/alerts",
     },
     {
       href: "/account/documents",

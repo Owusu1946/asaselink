@@ -14,6 +14,7 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
   "/account/reservations": { title: "My Reservations", description: "Active parcel reservations, escrow statuses, and deed preparation progress." },
   "/account/saved": { title: "Saved Parcels", description: "Bookmarked plots, price alerts, and estate layouts saved for review." },
   "/account/documents": { title: "Document Vault", description: "Official search reports, cadastral plans, and indenture deeds." },
+  "/account/alerts": { title: "Land Alerts", description: "Areas and budgets AsaseLink is actively watching for you." },
 };
 
 export function AccountWorkspaceShell({ children }: { children: React.ReactNode }) {

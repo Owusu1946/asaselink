@@ -11,13 +11,13 @@ import {
 } from "@hugeicons/core-free-icons";
 
 const LOCATIONS = [
-  "All of Ghana",
-  "East Legon Hills",
-  "Prampram Coastal",
-  "Aburi Ridge",
-  "Cantonments",
-  "Tema Community 25",
-  "Shai Hills",
+  { label: "All of Ghana" },
+  { label: "East Legon Hills", center: [-0.083, 5.708] as [number, number], region: "Greater Accra", district: "East Legon Hills" },
+  { label: "Prampram Coastal", center: [0.113, 5.714] as [number, number], region: "Greater Accra", district: "Prampram" },
+  { label: "Aburi Ridge", center: [-0.174, 5.848] as [number, number], region: "Eastern Region", district: "Aburi" },
+  { label: "Cantonments", center: [-0.171, 5.577] as [number, number], region: "Greater Accra", district: "Cantonments" },
+  { label: "Tema Community 25", center: [0.091, 5.704] as [number, number], region: "Greater Accra", district: "Tema Community 25" },
+  { label: "Shai Hills", center: [0.059, 5.91] as [number, number], region: "Greater Accra", district: "Shai Hills" },
 ];
 
 const ESTATE_TYPES = [
@@ -37,8 +37,9 @@ const BUDGET_RANGES = [
   "GHS 500k+",
 ];
 
+export interface SearchCriteria { location: string; type: string; budget: string; center?: [number, number]; region?: string; district?: string }
 interface SearchCapsuleProps {
-  onSearch?: (criteria: { location: string; type: string; budget: string }) => void;
+  onSearch?: (criteria: SearchCriteria) => void;
 }
 
 export function SearchCapsule({ onSearch }: SearchCapsuleProps) {
@@ -51,10 +52,14 @@ export function SearchCapsule({ onSearch }: SearchCapsuleProps) {
     e.preventDefault();
     setActiveTab(null);
     if (onSearch) {
+      const selectedPlace = LOCATIONS.find((place) => place.label === selectedLocation);
       onSearch({
         location: selectedLocation,
         type: selectedType,
         budget: selectedBudget,
+        center: selectedPlace?.center,
+        region: selectedPlace?.region,
+        district: selectedPlace?.district,
       });
     }
 
@@ -182,19 +187,19 @@ export function SearchCapsule({ onSearch }: SearchCapsuleProps) {
             {activeTab === "location" &&
               LOCATIONS.map((loc) => (
                 <button
-                  key={loc}
+                  key={loc.label}
                   type="button"
                   onClick={() => {
-                    setSelectedLocation(loc);
+                    setSelectedLocation(loc.label);
                     setActiveTab(null);
                   }}
                   className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
-                    selectedLocation === loc
+                    selectedLocation === loc.label
                       ? "bg-brand-green-900 text-white dark:bg-brand-green-600 dark:text-brand-black"
                       : "border border-border bg-muted/40 text-foreground hover:bg-muted"
                   }`}
                 >
-                  {loc}
+                  {loc.label}
                 </button>
               ))}
 

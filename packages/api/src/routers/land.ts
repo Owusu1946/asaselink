@@ -245,6 +245,7 @@ export const landRouter = {
     await Promise.all([
       db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
+      db.execute(sql`INSERT INTO outbox_events (topic, aggregate_id, payload) SELECT 'plot.available', ${created.id}, jsonb_build_object('plotId', ${created.id}) FROM estates WHERE id=${input.estateId} AND status='approved'`),
     ]);
     return { ...created, boundary: savedBoundary };
   }),
