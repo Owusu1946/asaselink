@@ -30,6 +30,12 @@ export function requireClerkClient() {
 async function authenticateClerkRequest(request: Request): Promise<ClerkContextAuth | null> {
   if (!clerkClient) return null;
 
+  // Public RPC calls do not carry credentials. Avoid Clerk's JWT/session work on
+  // every landing-page request; protected procedures still require a bearer token.
+  const hasAuthorization = Boolean(request.headers.get("authorization"));
+  const hasSessionCookie = /(?:^|;\s*)__session=/.test(request.headers.get("cookie") ?? "");
+  if (!hasAuthorization && !hasSessionCookie) return null;
+
   const requestState = await clerkClient.authenticateRequest(request, {
     authorizedParties: allowedOrigins(),
   });

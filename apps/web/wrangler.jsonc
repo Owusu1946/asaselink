@@ -21,5 +21,9 @@
       "binding": "DOCUMENTS",
       "bucket_name": "asaselink-documents",
     },
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "asaselink-next-cache",
+    },
   ],
 }
