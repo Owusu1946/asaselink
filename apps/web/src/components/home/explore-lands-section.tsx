@@ -12,6 +12,8 @@ import {
   Compass01Icon,
   ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
+import { LandAlertPrompt } from "./land-alert-prompt";
+import type { SearchCriteria } from "./search-capsule";
 
 export interface EstateListing {
   id: string;
@@ -126,7 +128,7 @@ const CATEGORIES = [
 
 interface ExploreLandsSectionProps {
   estates?: EstateListing[];
-  filterCriteria?: { location: string; type: string; budget: string } | null;
+  filterCriteria?: SearchCriteria | null;
 }
 
 export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: ExploreLandsSectionProps) {
@@ -240,6 +242,7 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
             >
               Reset filters
             </button>
+            {filterCriteria && filterCriteria.location !== "All of Ghana" ? <LandAlertPrompt criteria={filterCriteria} /> : null}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">

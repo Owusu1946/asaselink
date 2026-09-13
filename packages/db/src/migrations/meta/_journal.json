@@ -64,6 +64,13 @@
       "when": 1789120000000,
       "tag": "0008_estate_site_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789271956661,
+      "tag": "0009_short_sugar_man",
+      "breakpoints": true
     }
   ]
 }

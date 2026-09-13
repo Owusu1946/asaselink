@@ -5,6 +5,7 @@ import { HowItWorksSection } from "@/components/home/how-it-works-section";
 import { CompanyBanner } from "@/components/home/company-banner";
 import { LandingFooter } from "@/components/home/landing-footer";
 import { getServerApiClient } from "@/utils/server-orpc";
+import ApiProvider from "@/components/api-provider";
 
 const ESTATE_IMAGES = ["/estates/east-legon-hills.jpg", "/estates/prampram-coastal.jpg", "/estates/aburi-ridge.jpg", "/estates/shai-hills.jpg"];
 
@@ -37,7 +38,7 @@ export default async function HomePage() {
       <LandingNav />
 
       <main>
-        <LandingDiscovery estates={estates} />
+        <ApiProvider clerkEnabled><LandingDiscovery estates={estates} /></ApiProvider>
 
         {/* 4. The AsaseLink Standard / How It Works */}
         <HowItWorksSection />

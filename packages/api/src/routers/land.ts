@@ -7,7 +7,7 @@ import { protectedProcedure, publicProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { asMultiPolygon, estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
-import { createDocumentUploadUrl, createDocumentViewUrl, estateSitePlanKey, MAX_SITE_PLAN_BYTES, SITE_PLAN_MIME_TYPES, verifyDocumentObject } from "../storage/r2";
+import { createDocumentUploadUrl, createDocumentViewUrl, deleteDocumentObject, estateSitePlanKey, MAX_SITE_PLAN_BYTES, SITE_PLAN_MIME_TYPES, verifyDocumentObject } from "../storage/r2";
 
 const uuid = z.string().uuid();
 const corner = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
@@ -135,6 +135,18 @@ export const landRouter = {
     return { id: updated!.id, coordinates: updated!.coordinates, opacity: Number(updated!.opacity), alignmentLocked: updated!.alignmentLocked };
   }),
 
+  removeEstateSitePlan: protectedProcedure.input(z.object({ planId: uuid })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    const [owned] = await db.select({ plan: estateSitePlans, companyId: estates.companyId }).from(estateSitePlans).innerJoin(estates, eq(estateSitePlans.estateId, estates.id)).where(eq(estateSitePlans.id, input.planId)).limit(1);
+    if (!owned) throw new ORPCError("NOT_FOUND");
+    const access = await requireCompanyPermission(clerkId, owned.companyId, "plot:write");
+    await deleteDocumentObject(owned.plan.fileKey);
+    await db.delete(estateSitePlans).where(eq(estateSitePlans.id, input.planId));
+    await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.site_plan.removed", entityType: "estate", entityId: owned.plan.estateId, reason: "Site plan overlay removed to continue with manual plot tracing", metadata: { planId: input.planId, fileName: owned.plan.fileName } });
+    return { removed: true };
+  }),
+
   listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
     const result = await db.execute(sql`
       SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
@@ -233,6 +245,7 @@ export const landRouter = {
     await Promise.all([
       db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
+      db.execute(sql`INSERT INTO outbox_events (topic, aggregate_id, payload) SELECT 'plot.available', ${created.id}, jsonb_build_object('plotId', ${created.id}) FROM estates WHERE id=${input.estateId} AND status='approved'`),
     ]);
     return { ...created, boundary: savedBoundary };
   }),

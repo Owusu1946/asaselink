@@ -8,7 +8,7 @@ export type GeoJsonGeometry = {
 export const geometry = customType<{
   data: string;
   driverData: string;
-  config: { type: "Polygon" | "MultiPolygon" | "Geometry"; srid: number };
+  config: { type: "Point" | "Polygon" | "MultiPolygon" | "Geometry"; srid: number };
 }>({
   dataType(config) {
     return `geometry(${config?.type ?? "Geometry"},${config?.srid ?? 4326})`;
