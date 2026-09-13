@@ -4,16 +4,21 @@ import type { EstateListing } from "@/components/home/explore-lands-section";
 import { HowItWorksSection } from "@/components/home/how-it-works-section";
 import { CompanyBanner } from "@/components/home/company-banner";
 import { LandingFooter } from "@/components/home/landing-footer";
-import { getServerApiClient } from "@/utils/server-orpc";
+import { unstable_cache } from "next/cache";
+import { getPublicServerApiClient } from "@/utils/public-server-orpc";
 import ApiProvider from "@/components/api-provider";
 
 const ESTATE_IMAGES = ["/estates/east-legon-hills.jpg", "/estates/prampram-coastal.jpg", "/estates/aburi-ridge.jpg", "/estates/shai-hills.jpg"];
 
+const getPublishedEstates = unstable_cache(async () => {
+  const api = getPublicServerApiClient();
+  return api.land.listPublished({ limit: 24, offset: 0 }) as Promise<Record<string, unknown>[]>;
+}, ["landing-published-estates"], { revalidate: 300 });
+
 export default async function HomePage() {
   let published: Record<string, unknown>[] = [];
   try {
-    const api = await getServerApiClient();
-    published = await api.land.listPublished({ limit: 24, offset: 0 }) as Record<string, unknown>[];
+    published = await getPublishedEstates();
   } catch {
     // The public page remains usable while the API is temporarily unavailable.
   }
