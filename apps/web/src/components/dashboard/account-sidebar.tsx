@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useTheme } from "next-themes";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -54,13 +54,14 @@ export function AccountSidebar({
   onSelectSearch,
 }: AccountSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isLoaded } = useUser();
   const { theme, setTheme } = useTheme();
 
   const [searchFilter, setSearchFilter] = React.useState("");
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [activeItemMenu, setActiveItemMenu] = React.useState<string | null>(null);
-  const [counts, setCounts] = React.useState({ reservations: 0, saved: 0, documents: 0 });
+  const [counts, setCounts] = React.useState({ reservations: 0, saved: 0, documents: 0, alerts: 0 });
   const [recentExplorations, setRecentExplorations] = React.useState<RecentSearch[]>([]);
 
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
@@ -128,6 +129,7 @@ export function AccountSidebar({
       href: "/account/alerts",
       label: "Land Alerts",
       icon: Notification01Icon,
+      badge: String(counts.alerts),
       active: pathname === "/account/alerts",
     },
     {
@@ -274,7 +276,10 @@ export function AccountSidebar({
                         isActive &&
                           "bg-black/[0.07] dark:bg-white/[0.09] font-medium text-foreground",
                       )}
-                      onClick={() => onSelectSearch?.(item.id)}
+                      onClick={() => {
+                        onSelectSearch?.(item.id);
+                        router.push(`/?location=${encodeURIComponent(item.criteria.location)}&type=${encodeURIComponent(item.criteria.type)}&budget=${encodeURIComponent(item.criteria.budget)}#explore-lands`);
+                      }}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <span className="truncate text-xs">{item.title}</span>

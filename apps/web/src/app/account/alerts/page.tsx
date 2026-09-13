@@ -26,7 +26,7 @@ export default function LandAlertsPage() {
   function remove(alert: AlertRow) {
     if (!window.confirm(`Remove the alert for ${alert.locationLabel}?`)) return;
     const previous = alerts; setAlerts((rows) => rows.filter((row) => row.id !== alert.id)); setPendingId(alert.id);
-    startTransition(async () => { try { await client.alerts.remove({ id: alert.id }); notify.success("Alert removed"); } catch (cause) { setAlerts(previous); notify.apiError(cause, "Alert could not be removed"); } finally { setPendingId(null); } });
+    startTransition(async () => { try { await client.alerts.remove({ id: alert.id }); window.dispatchEvent(new Event("asaselink:buyer-data-changed")); notify.success("Alert removed"); } catch (cause) { setAlerts(previous); notify.apiError(cause, "Alert could not be removed"); } finally { setPendingId(null); } });
   }
 
   if (loading) return <div className="space-y-3">{[1, 2].map((item) => <div key={item} className="h-36 animate-pulse rounded-2xl bg-muted" />)}</div>;

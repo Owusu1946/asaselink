@@ -28,8 +28,9 @@ export const buyerRouter = {
         SELECT
           (SELECT count(*)::int FROM reservations WHERE buyer_user_id = ${user.id}) AS reservations,
           (SELECT count(*)::int FROM saved_estates WHERE user_id = ${user.id}) AS saved,
-          (SELECT count(*)::int FROM reservations WHERE buyer_user_id = ${user.id}) AS documents
-      `).then((result) => result.rows[0] as { reservations: number; saved: number; documents: number }),
+          (SELECT count(*)::int FROM reservations WHERE buyer_user_id = ${user.id}) AS documents,
+          (SELECT count(*)::int FROM land_alerts WHERE user_id = ${user.id}) AS alerts
+      `).then((result) => result.rows[0] as { reservations: number; saved: number; documents: number; alerts: number }),
       db.select({ id: recentExplorations.id, title: recentExplorations.title, location: recentExplorations.location, criteria: recentExplorations.criteria, updatedAt: recentExplorations.updatedAt })
         .from(recentExplorations).where(eq(recentExplorations.userId, user.id))
         .orderBy(desc(recentExplorations.updatedAt)).limit(8),
