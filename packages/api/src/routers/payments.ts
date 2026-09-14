@@ -194,13 +194,24 @@ export const paymentRouter = {
   adminQueue: protectedProcedure.handler(async ({ context }) => {
     await requireAdmin(requireUserId(context));
     const payments = await db.execute(sql`
-      SELECT pay.reference, pay.status, pay.method, pay.amount, pay.currency, pay.bank_transfer_reference AS "bankTransferReference", pay.created_at AS "createdAt",
+      SELECT pay.reference, pay.provider, pay.provider_reference AS "providerReference", pay.status, pay.method, pay.amount, pay.currency,
+        pay.bank_transfer_reference AS "bankTransferReference", pay.failure_reason AS "failureReason", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt",
         r.reference AS "reservationReference", p.plot_number AS "plotNumber", e.name AS "estateName", c.legal_name AS "companyName", u.email AS "buyerEmail"
       FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=pay.company_id JOIN users u ON u.id=pay.buyer_user_id
       ORDER BY pay.created_at DESC LIMIT 200
     `);
     const payouts = await db.execute(sql`SELECT pr.reference, pr.amount, pr.currency, pr.status, pr.destination_type AS "destinationType", pr.destination, pr.requested_at AS "requestedAt", c.legal_name AS "companyName" FROM payout_requests pr JOIN companies c ON c.id=pr.company_id ORDER BY pr.created_at DESC LIMIT 200`);
     return { payments: payments.rows, payouts: payouts.rows };
+  }),
+
+  adminTimeline: protectedProcedure.input(z.object({ paymentReference: z.string().trim().min(4).max(40) })).handler(async ({ context, input }) => {
+    await requireAdmin(requireUserId(context));
+    return db.execute(sql`
+      SELECT pe.type, pe.from_status AS "fromStatus", pe.to_status AS "toStatus", pe.metadata, pe.created_at AS "createdAt",
+        coalesce(concat_ws(' ',u.first_name,u.last_name), u.email, 'System') AS actor
+      FROM payment_events pe JOIN payments pay ON pay.id=pe.payment_id LEFT JOIN users u ON u.id=pe.actor_user_id
+      WHERE pay.reference=${input.paymentReference} ORDER BY pe.created_at DESC
+    `).then((result) => result.rows);
   }),
 
   reviewPayment: protectedProcedure.input(z.object({ paymentReference: z.string().trim().min(4).max(40), decision: z.enum(["APPROVE", "REJECT"]), reason: z.string().trim().min(5).max(500) })).handler(async ({ context, input }) => {
