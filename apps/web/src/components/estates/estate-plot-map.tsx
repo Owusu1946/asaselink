@@ -14,16 +14,26 @@ export interface PublicPlot {
   boundary: Geometry;
 }
 
+export interface NearbyLandmark {
+  id: string;
+  category: string;
+  name: string;
+  address?: string;
+  distanceMeters: number;
+  coordinates: [number, number];
+}
+
 function allCoordinates(geometry: Geometry): number[][] {
   if (geometry.type === "Polygon") return geometry.coordinates.flat(1);
   if (geometry.type === "MultiPolygon") return geometry.coordinates.flat(2);
   return [];
 }
 
-export function EstatePlotMap({ estateBoundary, plots, onSelect }: { estateBoundary: Geometry; plots: PublicPlot[]; onSelect: (plot: PublicPlot) => void }) {
+export function EstatePlotMap({ estateBoundary, plots, landmarks = [], onSelect }: { estateBoundary: Geometry; plots: PublicPlot[]; landmarks?: NearbyLandmark[]; onSelect: (plot: PublicPlot) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const plotsRef = useRef(plots);
+  const landmarksRef = useRef(landmarks);
   const onSelectRef = useRef(onSelect);
   const [error, setError] = useState(false);
 
@@ -33,6 +43,12 @@ export function EstatePlotMap({ estateBoundary, plots, onSelect }: { estateBound
     const source = mapRef.current?.getSource("plots") as mapboxgl.GeoJSONSource | undefined;
     source?.setData({ type: "FeatureCollection", features: plots.map((plot) => ({ type: "Feature", id: plot.id, properties: { id: plot.id, number: plot.plotNumber, status: plot.status }, geometry: plot.boundary })) });
   }, [onSelect, plots]);
+
+  useEffect(() => {
+    landmarksRef.current = landmarks;
+    const source = mapRef.current?.getSource("nearby-landmarks") as mapboxgl.GeoJSONSource | undefined;
+    source?.setData({ type: "FeatureCollection", features: landmarks.map((landmark) => ({ type: "Feature", properties: { name: landmark.name, category: landmark.category }, geometry: { type: "Point", coordinates: landmark.coordinates } })) });
+  }, [landmarks]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -56,6 +72,9 @@ export function EstatePlotMap({ estateBoundary, plots, onSelect }: { estateBound
         map.addSource("plots", { type: "geojson", data: collection, promoteId: "id" });
         map.addLayer({ id: "plots-fill", type: "fill", source: "plots", paint: { "fill-color": ["match", ["get", "status"], "AVAILABLE", "#2f855a", "RESERVED", "#d9a817", "#525252"], "fill-opacity": 0.5 } });
         map.addLayer({ id: "plots-outline", type: "line", source: "plots", paint: { "line-color": "#ffffff", "line-width": 2 } });
+        map.addSource("nearby-landmarks", { type: "geojson", data: { type: "FeatureCollection", features: landmarksRef.current.map((landmark) => ({ type: "Feature", properties: { name: landmark.name, category: landmark.category }, geometry: { type: "Point", coordinates: landmark.coordinates } })) } });
+        map.addLayer({ id: "nearby-landmarks-points", type: "circle", source: "nearby-landmarks", paint: { "circle-radius": 6, "circle-color": "#ffffff", "circle-stroke-color": "#064e3b", "circle-stroke-width": 3 } });
+        map.addLayer({ id: "nearby-landmarks-labels", type: "symbol", source: "nearby-landmarks", minzoom: 13, layout: { "text-field": ["get", "name"], "text-size": 11, "text-offset": [0, 1.25], "text-anchor": "top" }, paint: { "text-color": "#ffffff", "text-halo-color": "#10211a", "text-halo-width": 1.5 } });
         map.addLayer({ id: "plot-labels", type: "symbol", source: "plots", layout: { "text-field": ["get", "number"], "text-size": 12 }, paint: { "text-color": "#ffffff", "text-halo-color": "#152019", "text-halo-width": 1.5 } });
         map.on("mouseenter", "plots-fill", () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", "plots-fill", () => { map.getCanvas().style.cursor = ""; });
