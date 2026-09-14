@@ -224,7 +224,7 @@ export const paymentRouter = {
         ON CONFLICT (payment_id, type) DO NOTHING
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.approved:' || id::text, 'payment.approved', 'PENDING_CONFIRMATION', 'SUCCEEDED', ${admin.id}, jsonb_build_object('reason', ${input.reason}) FROM paid
+        SELECT id, 'payment.approved:' || id::text, 'payment.approved', 'PENDING_CONFIRMATION', 'SUCCEEDED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text) FROM paid
         ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
         INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason)
@@ -246,7 +246,7 @@ export const paymentRouter = {
         UPDATE plots SET status='AVAILABLE', updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED'
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.rejected:' || id::text, 'payment.rejected', 'PENDING_CONFIRMATION', 'FAILED', ${admin.id}, jsonb_build_object('reason', ${input.reason}) FROM failed ON CONFLICT (event_key) DO NOTHING
+        SELECT id, 'payment.rejected:' || id::text, 'payment.rejected', 'PENDING_CONFIRMATION', 'FAILED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text) FROM failed ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
         INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason)
         SELECT ${admin.id}, 'payment.rejected', 'payment', id::text, ${input.reason} FROM failed
