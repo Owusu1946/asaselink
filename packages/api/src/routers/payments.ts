@@ -109,9 +109,9 @@ export const paymentRouter = {
     const eventKey = `payment.submitted:${input.paymentReference}`;
     const result = await db.execute(sql`
       WITH changed AS (
-        UPDATE payments SET status='PENDING_CONFIRMATION', bank_transfer_reference=CASE WHEN method='BANK_TRANSFER' THEN ${input.bankTransferReference ?? null} ELSE bank_transfer_reference END, updated_at=now()
+        UPDATE payments SET status='PENDING_CONFIRMATION', bank_transfer_reference=CASE WHEN method='BANK_TRANSFER' THEN ${input.bankTransferReference ?? null}::text ELSE bank_transfer_reference END, updated_at=now()
         WHERE reference=${input.paymentReference} AND buyer_user_id=${buyer.id} AND status='INITIATED'
-          AND (method <> 'BANK_TRANSFER' OR ${input.bankTransferReference ?? null} IS NOT NULL)
+          AND (method <> 'BANK_TRANSFER' OR ${input.bankTransferReference ?? null}::text IS NOT NULL)
         RETURNING id, reference, status, method, amount, currency
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id)
