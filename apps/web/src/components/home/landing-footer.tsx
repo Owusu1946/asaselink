@@ -77,6 +77,8 @@ export function LandingFooter() {
             <Link href="/company/apply" className="text-muted-foreground hover:text-foreground transition-colors">
               Company Onboarding
             </Link>
+            <Link href="/support" className="text-muted-foreground hover:text-foreground transition-colors">Help centre</Link>
+            <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact us</Link>
           </div>
         </div>
 
@@ -93,6 +95,8 @@ export function LandingFooter() {
 
           {/* Region & Currency Tag */}
           <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link href="/terms" className="hover:text-foreground">Terms</Link>
             <div className="flex items-center gap-1.5 font-medium text-foreground">
               <HugeiconsIcon icon={Location01Icon} size={14} className="text-brand-green-800 dark:text-brand-green-400" />
               <span>Accra, Ghana &middot; GHS (GH&#8373;)</span>
