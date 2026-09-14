@@ -17,6 +17,13 @@ async function requireReadyBuyer(clerkId: string) {
   return buyer;
 }
 
+async function requireAdmin(clerkId: string) {
+  const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users)
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active"))).limit(1);
+  if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
+  return admin;
+}
+
 export const reservationRouter = {
   create: protectedProcedure.input(z.object({ plotId: uuid })).handler(async ({ context, input }) => {
     const clerkId = context.auth?.userId;
@@ -118,5 +125,41 @@ export const reservationRouter = {
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only active or payment-pending reservations can be cancelled." });
     return result.rows[0];
+  }),
+
+  adminList: protectedProcedure.input(z.object({ search: z.string().trim().max(100).optional(), status: z.enum(["ALL", "ACTIVE", "PAYMENT_PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"]).default("ALL") })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireAdmin(clerkId);
+    const search = input.search ? `%${input.search}%` : null;
+    return db.execute(sql`
+      SELECT r.id, r.reference, r.status, r.price_snapshot AS "priceSnapshot", r.expires_at AS "expiresAt", r.created_at AS "createdAt",
+        r.cancellation_reason AS "cancellationReason", p.plot_number AS "plotNumber", p.status AS "plotStatus",
+        e.name AS "estateName", c.legal_name AS "companyName", u.email AS "buyerEmail",
+        concat_ws(' ',u.first_name,u.last_name) AS "buyerName", u.phone_number AS "buyerPhone",
+        pay.reference AS "paymentReference", pay.provider_reference AS "providerReference", pay.status AS "paymentStatus", pay.method AS "paymentMethod", pay.failure_reason AS "paymentFailureReason"
+      FROM reservations r JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=e.company_id JOIN users u ON u.id=r.buyer_user_id
+      LEFT JOIN LATERAL (SELECT reference, provider_reference, status, method, failure_reason FROM payments WHERE reservation_id=r.id ORDER BY created_at DESC LIMIT 1) pay ON true
+      WHERE (${input.status}='ALL' OR r.status=${input.status})
+        AND (${search}::text IS NULL OR r.reference ILIKE ${search} OR p.plot_number ILIKE ${search} OR e.name ILIKE ${search} OR c.legal_name ILIKE ${search} OR coalesce(u.email,'') ILIKE ${search} OR coalesce(pay.reference,'') ILIKE ${search})
+      ORDER BY r.created_at DESC LIMIT 300
+    `).then((result) => result.rows);
+  }),
+
+  adminTimeline: protectedProcedure.input(z.object({ reference: z.string().trim().min(4).max(32) })).handler(async ({ context, input }) => {
+    const clerkId = context.auth?.userId;
+    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+    await requireAdmin(clerkId);
+    const reservation = await db.execute(sql`SELECT id FROM reservations WHERE reference=${input.reference} LIMIT 1`);
+    const id = reservation.rows[0]?.id;
+    if (!id) throw new ORPCError("NOT_FOUND");
+    return db.execute(sql`
+      SELECT action AS type, reason, metadata, created_at AS "createdAt", 'audit' AS source
+      FROM audit_logs WHERE entity_type='reservation' AND entity_id=${String(id)}
+      UNION ALL
+      SELECT pe.type, coalesce(pe.metadata->>'reason', pay.failure_reason) AS reason, pe.metadata, pe.created_at AS "createdAt", 'payment' AS source
+      FROM payment_events pe JOIN payments pay ON pay.id=pe.payment_id WHERE pay.reservation_id=${String(id)}::uuid
+      ORDER BY "createdAt" DESC
+    `).then((result) => result.rows);
   }),
 };
