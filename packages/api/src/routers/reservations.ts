@@ -113,6 +113,10 @@ export const reservationRouter = {
       ), payments_cancelled AS (
         UPDATE payments SET status='CANCELLED', failed_at=now(), failure_reason=${input.reason}, updated_at=now()
         WHERE reservation_id=(SELECT id FROM cancelled) AND status IN ('INITIATED','PENDING_CONFIRMATION') RETURNING id
+      ), payment_evented AS (
+        INSERT INTO payment_events (payment_id, event_key, type, to_status, actor_user_id, metadata)
+        SELECT id, 'payment.company_cancelled:' || id::text, 'payment.cancelled_by_company', 'CANCELLED', ${access.user.id}, jsonb_build_object('reason', ${input.reason}::text)
+        FROM payments_cancelled ON CONFLICT (event_key) DO NOTHING
       ), released AS (
         UPDATE plots SET status='AVAILABLE', updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED' RETURNING id
       ), audited AS (
@@ -121,6 +125,8 @@ export const reservationRouter = {
       ), outboxed AS (
         INSERT INTO outbox_events (topic, aggregate_id, payload)
         SELECT 'reservation.cancelled', id::text, jsonb_build_object('reservationId', id, 'reference', reference, 'reason', ${input.reason}::text) FROM cancelled
+        UNION ALL
+        SELECT 'plot.available', id::text, jsonb_build_object('plotId', id) FROM released
       ) SELECT reference, 'CANCELLED' AS status FROM cancelled
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only active or payment-pending reservations can be cancelled." });
