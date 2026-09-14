@@ -133,6 +133,12 @@ export function AccountSidebar({
       active: pathname === "/account/alerts",
     },
     {
+      href: "/account/payments",
+      label: "Payments",
+      icon: File01Icon,
+      active: pathname === "/account/payments",
+    },
+    {
       href: "/account/documents",
       label: "Document Vault",
       icon: File01Icon,
