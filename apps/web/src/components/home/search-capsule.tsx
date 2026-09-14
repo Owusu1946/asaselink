@@ -79,23 +79,22 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
   };
 
   return (
-    <div className="relative w-full max-w-3xl mx-auto">
+    <div className="relative mx-auto w-full max-w-3xl text-foreground">
       {/* Search Capsule Bar */}
       <form
         onSubmit={handleExecuteSearch}
-        className="relative flex flex-col sm:flex-row items-center rounded-3xl sm:rounded-full border border-border/90 bg-background/95 p-1.5 sm:p-2 shadow-[0_6px_24px_rgba(0,0,0,0.08)] backdrop-blur-md transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+        className="relative flex flex-col overflow-hidden rounded-[1.25rem] border border-white/30 bg-background/95 p-1.5 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:overflow-visible sm:rounded-full sm:p-2"
       >
         {/* Segment 1: Location */}
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           onClick={() => setActiveTab(activeTab === "location" ? null : "location")}
           onKeyDown={(e) => e.key === "Enter" && setActiveTab(activeTab === "location" ? null : "location")}
-          className={`flex w-full sm:flex-1 cursor-pointer items-center gap-3 rounded-2xl sm:rounded-full px-4 py-2.5 transition-colors ${
+          className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2 text-left transition-colors sm:min-h-0 sm:flex-1 sm:rounded-full sm:px-4 sm:py-2.5 ${
             activeTab === "location" ? "bg-muted/80 ring-1 ring-border" : "hover:bg-muted/50"
           }`}
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-green-50 text-brand-green-800 dark:bg-brand-green-950 dark:text-brand-green-300">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-brand-green-900 dark:text-brand-green-300">
             <HugeiconsIcon icon={Location01Icon} size={16} />
           </div>
           <div className="flex flex-col text-left overflow-hidden">
@@ -106,22 +105,21 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
               {selectedLocation}
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Separator */}
-        <div className="hidden sm:block h-8 w-px bg-border/80" />
+        <div className="mx-3 h-px w-[calc(100%-1.5rem)] bg-border/70 sm:mx-0 sm:block sm:h-8 sm:w-px" />
 
         {/* Segment 2: Layout Type */}
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           onClick={() => setActiveTab(activeTab === "type" ? null : "type")}
           onKeyDown={(e) => e.key === "Enter" && setActiveTab(activeTab === "type" ? null : "type")}
-          className={`flex w-full sm:flex-1 cursor-pointer items-center gap-3 rounded-2xl sm:rounded-full px-4 py-2.5 transition-colors ${
+          className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2 text-left transition-colors sm:min-h-0 sm:flex-1 sm:rounded-full sm:px-4 sm:py-2.5 ${
             activeTab === "type" ? "bg-muted/80 ring-1 ring-border" : "hover:bg-muted/50"
           }`}
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-gold-50 text-brand-gold-800 dark:bg-brand-gold-950 dark:text-brand-gold-300">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-brand-green-900 dark:text-brand-green-300">
             <HugeiconsIcon icon={Building02Icon} size={16} />
           </div>
           <div className="flex flex-col text-left overflow-hidden">
@@ -132,22 +130,21 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
               {selectedType}
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Separator */}
-        <div className="hidden sm:block h-8 w-px bg-border/80" />
+        <div className="mx-3 h-px w-[calc(100%-1.5rem)] bg-border/70 sm:mx-0 sm:block sm:h-8 sm:w-px" />
 
         {/* Segment 3: Budget */}
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           onClick={() => setActiveTab(activeTab === "budget" ? null : "budget")}
           onKeyDown={(e) => e.key === "Enter" && setActiveTab(activeTab === "budget" ? null : "budget")}
-          className={`flex w-full sm:flex-1 cursor-pointer items-center gap-3 rounded-2xl sm:rounded-full px-4 py-2.5 transition-colors ${
+          className={`flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-3.5 py-2 text-left transition-colors sm:min-h-0 sm:flex-1 sm:rounded-full sm:px-4 sm:py-2.5 ${
             activeTab === "budget" ? "bg-muted/80 ring-1 ring-border" : "hover:bg-muted/50"
           }`}
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-brand-green-900 dark:text-brand-green-300">
             <HugeiconsIcon icon={Coins01Icon} size={16} />
           </div>
           <div className="flex flex-col text-left overflow-hidden">
@@ -158,24 +155,24 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
               {selectedBudget}
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Search Action Button */}
-        <div className="w-full sm:w-auto p-1">
+        <div className="w-full p-1 pt-1.5 sm:w-auto sm:pt-1">
           <button
             type="submit"
             aria-label="Search estates"
-            className="flex h-11 w-full sm:w-auto sm:aspect-square sm:px-0 items-center justify-center gap-2 rounded-full bg-brand-green-900 px-5 text-white shadow transition-all hover:bg-brand-green-800 hover:scale-[1.02] active:scale-[0.98] dark:bg-brand-green-600 dark:text-brand-black dark:hover:bg-brand-green-500"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-green-900 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-green-800 active:bg-brand-green-950 sm:aspect-square sm:min-h-11 sm:w-auto sm:rounded-full sm:px-0 dark:bg-brand-green-600 dark:text-brand-black dark:hover:bg-brand-green-500"
           >
             <HugeiconsIcon icon={Search01Icon} size={18} />
-            <span className="sm:hidden text-xs font-semibold">Search estates</span>
+            <span className="sm:hidden">Search estates</span>
           </button>
         </div>
       </form>
 
       {/* Popover Dropdown Panels */}
       {activeTab && (
-        <div className="absolute left-0 right-0 top-full mt-2.5 z-30 rounded-3xl border border-border bg-background/98 p-5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 right-0 top-full z-30 mt-2.5 max-h-[42svh] overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-none sm:rounded-3xl sm:p-5">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <h4 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
               {activeTab === "location" && "Select a region or district"}
@@ -185,7 +182,7 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
             <button
               type="button"
               onClick={() => setActiveTab(null)}
-              className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+              className="grid size-10 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <HugeiconsIcon icon={Cancel01Icon} size={16} />
             </button>
@@ -201,7 +198,7 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
                     setSelectedLocation(loc.label);
                     setActiveTab(null);
                   }}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  className={`min-h-10 rounded-full px-3.5 py-2 text-xs font-medium transition-all ${
                     selectedLocation === loc.label
                       ? "bg-brand-green-900 text-white dark:bg-brand-green-600 dark:text-brand-black"
                       : "border border-border bg-muted/40 text-foreground hover:bg-muted"
@@ -220,7 +217,7 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
                     setSelectedType(type);
                     setActiveTab(null);
                   }}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  className={`min-h-10 rounded-full px-3.5 py-2 text-xs font-medium transition-all ${
                     selectedType === type
                       ? "bg-brand-green-900 text-white dark:bg-brand-green-600 dark:text-brand-black"
                       : "border border-border bg-muted/40 text-foreground hover:bg-muted"
@@ -239,7 +236,7 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
                     setSelectedBudget(b);
                     setActiveTab(null);
                   }}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  className={`min-h-10 rounded-full px-3.5 py-2 text-xs font-medium transition-all ${
                     selectedBudget === b
                       ? "bg-brand-green-900 text-white dark:bg-brand-green-600 dark:text-brand-black"
                       : "border border-border bg-muted/40 text-foreground hover:bg-muted"
