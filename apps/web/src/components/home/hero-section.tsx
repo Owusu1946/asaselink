@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -10,6 +11,12 @@ import {
   ShieldCheckIcon,
 } from "@hugeicons/core-free-icons";
 import { SearchCapsule, type SearchCriteria } from "./search-capsule";
+import eastLegonHills from "../../../public/estates/east-legon-hills.jpg";
+import prampramCoastal from "../../../public/estates/prampram-coastal.jpg";
+import aburiRidge from "../../../public/estates/aburi-ridge.jpg";
+import cantonmentsLuxury from "../../../public/estates/cantonments-luxury.jpg";
+import shaiHills from "../../../public/estates/shai-hills.jpg";
+import temaCommunity25 from "../../../public/estates/tema-community-25.jpg";
 
 export interface HeroSlide {
   id: string;
@@ -18,7 +25,7 @@ export interface HeroSlide {
   region: string;
   priceStart: string;
   availablePlots: number;
-  image: string;
+  image: StaticImageData;
 }
 
 const HERO_SLIDES: HeroSlide[] = [
@@ -29,7 +36,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 180,000",
     availablePlots: 24,
-    image: "/estates/east-legon-hills.jpg",
+    image: eastLegonHills,
   },
   {
     id: "prampram-coastal",
@@ -38,7 +45,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 85,000",
     availablePlots: 38,
-    image: "/estates/prampram-coastal.jpg",
+    image: prampramCoastal,
   },
   {
     id: "aburi-ridge",
@@ -47,7 +54,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Eastern Region",
     priceStart: "GHS 240,000",
     availablePlots: 14,
-    image: "/estates/aburi-ridge.jpg",
+    image: aburiRidge,
   },
   {
     id: "cantonments-luxury",
@@ -56,7 +63,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Accra Central",
     priceStart: "GHS 950,000",
     availablePlots: 5,
-    image: "/estates/cantonments-luxury.jpg",
+    image: cantonmentsLuxury,
   },
   {
     id: "shai-hills",
@@ -65,7 +72,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 110,000",
     availablePlots: 28,
-    image: "/estates/shai-hills.jpg",
+    image: shaiHills,
   },
   {
     id: "tema-comm-25",
@@ -74,7 +81,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 140,000",
     availablePlots: 32,
-    image: "/estates/tema-community-25.jpg",
+    image: temaCommunity25,
   },
 ];
 
@@ -136,7 +143,9 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
                 alt={slide.name}
                 fill
                 priority={index === 0}
-                sizes="(max-width: 1280px) 100vw, 1440px"
+                placeholder="blur"
+                quality={index === 0 ? 78 : 72}
+                sizes="(max-width: 640px) calc(100vw - 1.5rem), (max-width: 1280px) calc(100vw - 3rem), 1280px"
                 className={`object-cover transition-transform duration-1000 ease-out ${
                   isActive ? "scale-100" : "scale-105"
                 }`}

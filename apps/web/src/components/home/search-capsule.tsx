@@ -172,7 +172,14 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
 
       {/* Popover Dropdown Panels */}
       {activeTab && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-2.5 max-h-[42svh] overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl animate-in fade-in zoom-in-95 duration-150 sm:max-h-none sm:rounded-3xl sm:p-5">
+        <>
+          <button
+            type="button"
+            aria-label="Close search options"
+            onClick={() => setActiveTab(null)}
+            className="fixed inset-0 z-40 bg-black/35 sm:hidden"
+          />
+          <div className="fixed inset-x-3 bottom-3 z-50 max-h-[min(72svh,34rem)] overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-2xl animate-in slide-in-from-bottom-4 duration-200 sm:absolute sm:inset-x-0 sm:bottom-auto sm:top-full sm:z-30 sm:mt-2.5 sm:max-h-none sm:rounded-3xl sm:p-5 sm:fade-in sm:zoom-in-95">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <h4 className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
               {activeTab === "location" && "Select a region or district"}
@@ -246,7 +253,8 @@ export function SearchCapsule({ onSearch, initialCriteria }: SearchCapsuleProps)
                 </button>
               ))}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
