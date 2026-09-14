@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowLeft01Icon,
@@ -10,6 +11,12 @@ import {
   ShieldCheckIcon,
 } from "@hugeicons/core-free-icons";
 import { SearchCapsule, type SearchCriteria } from "./search-capsule";
+import eastLegonHills from "../../../public/estates/east-legon-hills.jpg";
+import prampramCoastal from "../../../public/estates/prampram-coastal.jpg";
+import aburiRidge from "../../../public/estates/aburi-ridge.jpg";
+import cantonmentsLuxury from "../../../public/estates/cantonments-luxury.jpg";
+import shaiHills from "../../../public/estates/shai-hills.jpg";
+import temaCommunity25 from "../../../public/estates/tema-community-25.jpg";
 
 export interface HeroSlide {
   id: string;
@@ -18,7 +25,7 @@ export interface HeroSlide {
   region: string;
   priceStart: string;
   availablePlots: number;
-  image: string;
+  image: StaticImageData;
 }
 
 const HERO_SLIDES: HeroSlide[] = [
@@ -29,7 +36,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 180,000",
     availablePlots: 24,
-    image: "/estates/east-legon-hills.jpg",
+    image: eastLegonHills,
   },
   {
     id: "prampram-coastal",
@@ -38,7 +45,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 85,000",
     availablePlots: 38,
-    image: "/estates/prampram-coastal.jpg",
+    image: prampramCoastal,
   },
   {
     id: "aburi-ridge",
@@ -47,7 +54,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Eastern Region",
     priceStart: "GHS 240,000",
     availablePlots: 14,
-    image: "/estates/aburi-ridge.jpg",
+    image: aburiRidge,
   },
   {
     id: "cantonments-luxury",
@@ -56,7 +63,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Accra Central",
     priceStart: "GHS 950,000",
     availablePlots: 5,
-    image: "/estates/cantonments-luxury.jpg",
+    image: cantonmentsLuxury,
   },
   {
     id: "shai-hills",
@@ -65,7 +72,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 110,000",
     availablePlots: 28,
-    image: "/estates/shai-hills.jpg",
+    image: shaiHills,
   },
   {
     id: "tema-comm-25",
@@ -74,7 +81,7 @@ const HERO_SLIDES: HeroSlide[] = [
     region: "Greater Accra",
     priceStart: "GHS 140,000",
     availablePlots: 32,
-    image: "/estates/tema-community-25.jpg",
+    image: temaCommunity25,
   },
 ];
 
@@ -115,9 +122,9 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
   const activeSlide = HERO_SLIDES[currentSlide];
 
   return (
-    <section className="relative w-full px-3 pb-8 pt-2 sm:px-6 sm:pb-12 md:px-8">
+    <section className="relative w-full px-3 pb-8 pt-1 sm:px-6 sm:pb-12 sm:pt-2 md:px-8">
       <div
-        className="relative mx-auto h-[calc(100svh-5rem)] min-h-[600px] max-h-[760px] w-full max-w-7xl overflow-hidden rounded-[1.5rem] border border-border/60 bg-neutral-950 shadow-xl sm:h-[78vh] sm:min-h-[540px] sm:rounded-[2.5rem]"
+        className="relative mx-auto min-h-[calc(100svh-5.25rem)] w-full max-w-7xl overflow-hidden rounded-[1.35rem] border border-white/10 bg-neutral-950 shadow-lg sm:h-[78vh] sm:min-h-[560px] sm:max-h-[760px] sm:rounded-[2.5rem]"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
@@ -136,7 +143,9 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
                 alt={slide.name}
                 fill
                 priority={index === 0}
-                sizes="(max-width: 1280px) 100vw, 1440px"
+                placeholder="blur"
+                quality={index === 0 ? 78 : 72}
+                sizes="(max-width: 640px) calc(100vw - 1.5rem), (max-width: 1280px) calc(100vw - 3rem), 1280px"
                 className={`object-cover transition-transform duration-1000 ease-out ${
                   isActive ? "scale-100" : "scale-105"
                 }`}
@@ -146,7 +155,8 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
         })}
 
         {/* Cinematic Vignette Overlay for High Legibility & Premium Feel */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/85 via-black/35 to-black/45 pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 z-10 bg-black/45" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/3 bg-gradient-to-t from-black/80 to-transparent" />
 
         {/* Sleek Left and Right Slider Arrows (High z-index to guarantee clickability) */}
         <div className="absolute inset-y-0 left-3 z-40 hidden items-center sm:left-6 sm:flex">
@@ -180,12 +190,13 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
         </div>
 
         {/* Centered Minimal Content Overlay - Pass-through pointer events to background/arrows */}
-        <div className="relative z-20 flex h-full flex-col justify-between p-5 text-white pointer-events-none sm:p-10 md:p-12">
+        <div className="relative z-20 flex min-h-[calc(100svh-5.25rem)] flex-col justify-between p-4 text-white pointer-events-none sm:h-full sm:min-h-0 sm:p-10 md:p-12">
           {/* Top Row: Current Estate Tag & Slide Counter */}
-          <div className="flex items-center justify-between pointer-events-auto">
-            <div className="flex min-w-0 items-center gap-2 rounded-full border border-white/20 bg-black/50 px-3 py-1.5 backdrop-blur-md text-xs font-medium text-white shadow">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-brand-gold-400"><HugeiconsIcon icon={Location01Icon} size={14} /></span>
-              <span>
+          <div className="flex items-start justify-between gap-2 pointer-events-auto">
+            <div className="flex min-w-0 max-w-[calc(100%-4.25rem)] items-center gap-2 rounded-full border border-white/20 bg-black/55 px-2.5 py-2 text-[11px] font-medium text-white backdrop-blur-md sm:max-w-none sm:px-3 sm:text-xs">
+              <HugeiconsIcon icon={Location01Icon} size={15} className="shrink-0 text-brand-gold-400" />
+              <span className="truncate sm:hidden">{activeSlide.location}</span>
+              <span className="hidden sm:inline">
                 {activeSlide.name} &middot; {activeSlide.location}
               </span>
               <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-white/80 border-l border-white/20 pl-2">
@@ -195,7 +206,7 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
             </div>
 
             {/* Slide Index Pill */}
-            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/50 px-3 py-1 backdrop-blur-md text-xs font-semibold text-white/90">
+            <div className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-black/55 px-3 text-xs font-semibold text-white/90 backdrop-blur-md">
               <span>0{currentSlide + 1}</span>
               <span className="text-white/40">/</span>
               <span className="text-white/60">0{HERO_SLIDES.length}</span>
@@ -203,35 +214,35 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
           </div>
 
           {/* Center Minimal Writing & Airbnb Search Capsule */}
-          <div className="my-auto mx-auto w-full max-w-4xl text-center px-2 pointer-events-auto">
+          <div className="mx-auto my-8 w-full max-w-4xl px-0 text-center pointer-events-auto sm:my-auto sm:px-2">
             {/* Minimal Editorial Headline */}
-            <h1 className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-md sm:text-5xl md:text-6xl">
+            <h1 className="text-balance text-[clamp(2.35rem,12vw,3.25rem)] font-extrabold leading-[0.98] tracking-[-0.045em] text-white drop-shadow-md sm:text-5xl md:text-6xl">
               Find your place on the map.
             </h1>
 
             {/* Minimal Subtext */}
-            <p className="mt-3 text-sm sm:text-lg text-white/85 max-w-xl mx-auto drop-shadow font-medium">
+            <p className="mx-auto mt-4 max-w-[32rem] text-balance text-sm font-medium leading-6 text-white/85 drop-shadow sm:text-lg">
               Explore verified estates across Ghana. Transparent plots, direct developers.
             </p>
 
             {/* Floating Search Capsule */}
-            <div className="mt-7 sm:mt-9">
+            <div className="mt-6 sm:mt-9">
               <SearchCapsule onSearch={onSearchCriteriaChange} initialCriteria={initialSearchCriteria} />
             </div>
           </div>
 
           {/* Bottom Slider Indicator Dots */}
-          <div className="flex items-center justify-center gap-2 pointer-events-auto">
+          <div className="flex min-h-11 items-center justify-center gap-2 pointer-events-auto">
             {HERO_SLIDES.map((slide, index) => (
               <button
                 key={slide.id}
                 type="button"
                 onClick={() => setCurrentSlide(index)}
                 aria-label={`Go to slide ${index + 1}: ${slide.name}`}
-                className={`h-1.5 cursor-pointer rounded-full transition-all duration-300 ${
+                className={`relative min-h-11 min-w-8 cursor-pointer rounded-full after:absolute after:left-1/2 after:top-1/2 after:h-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:transition-all after:duration-300 ${
                   index === currentSlide
-                    ? "w-8 bg-brand-gold-400 shadow-sm"
-                    : "w-2 bg-white/50 hover:bg-white/80"
+                    ? "after:w-8 after:bg-brand-gold-400"
+                    : "after:w-2 after:bg-white/50 hover:after:bg-white/80"
                 }`}
               />
             ))}

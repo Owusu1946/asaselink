@@ -4,6 +4,7 @@ import { GooeyToaster } from "goey-toast";
 import { useTheme } from "next-themes";
 
 import { ThemeProvider } from "./theme-provider";
+import { RouteProgress } from "./route-progress";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <RouteProgress />
       {children}
       <GooeyToaster
         position="top-right"

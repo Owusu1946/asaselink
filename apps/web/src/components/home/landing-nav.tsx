@@ -71,13 +71,24 @@ export function LandingNav() {
 
           {/* Integrated Capsule Action */}
           <div className="flex items-center gap-2">
-            <Link
-              href="#explore-lands"
-              className="hidden h-9 items-center gap-1.5 rounded-full bg-brand-green-900 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-brand-green-800 active:scale-[0.98] dark:bg-brand-green-600 dark:text-brand-black dark:hover:bg-brand-green-500 sm:inline-flex"
-            >
-              <HugeiconsIcon icon={Compass01Icon} size={14} className="shrink-0" />
-              <span>Explore estates</span>
-            </Link>
+            <Show when="signed-in">
+              <Link
+                href="/account"
+                className="hidden h-9 items-center gap-1.5 rounded-full bg-brand-green-900 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-brand-green-800 active:scale-[0.98] dark:bg-brand-green-600 dark:text-brand-black dark:hover:bg-brand-green-500 sm:inline-flex"
+              >
+                <HugeiconsIcon icon={UserCircleIcon} size={15} className="shrink-0" />
+                <span>My account</span>
+              </Link>
+            </Show>
+            <Show when="signed-out">
+              <Link
+                href="#explore-lands"
+                className="hidden h-9 items-center gap-1.5 rounded-full bg-brand-green-900 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-brand-green-800 active:scale-[0.98] dark:bg-brand-green-600 dark:text-brand-black dark:hover:bg-brand-green-500 sm:inline-flex"
+              >
+                <HugeiconsIcon icon={Compass01Icon} size={14} className="shrink-0" />
+                <span>Explore estates</span>
+              </Link>
+            </Show>
           </div>
         </nav>
 
@@ -170,11 +181,11 @@ export function LandingNav() {
             <div className="flex items-center justify-between px-2 pt-1">
               <Show when="signed-in">
                 <Link
-                  href="/dashboard"
+                  href="/account"
                   onClick={() => setMobileMenuOpen(false)}
                   className="inline-flex items-center gap-2 text-sm font-medium text-brand-green-800 dark:text-brand-green-400"
                 >
-                  <span>Go to dashboard</span>
+                  <span>Go to my account</span>
                   <HugeiconsIcon icon={ArrowRight01Icon} size={14} />
                 </Link>
               </Show>
