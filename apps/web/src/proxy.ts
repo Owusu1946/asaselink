@@ -8,6 +8,7 @@ const protectedPrefixes = [
   "/company",
   "/dashboard",
   "/onboarding",
+  "/reservations",
   "/workspaces",
 ];
 
@@ -46,6 +47,7 @@ export const config = {
     "/company/:path*",
     "/dashboard/:path*",
     "/onboarding/:path*",
+    "/reservations/:path*",
     "/workspaces/:path*",
     "/__clerk/:path*",
   ],

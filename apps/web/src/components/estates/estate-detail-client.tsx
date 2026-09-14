@@ -33,9 +33,9 @@ export function EstateDetailClient({ slug, boundary, plots }: { slug: string; bo
     setLivePlots((current) => current.map((plot) => plot.id === previous.id ? reserved : plot));
     startTransition(async () => {
       try {
-        await client.reservations.create({ plotId: previous.id });
+        const reservation = await client.reservations.create({ plotId: previous.id });
         notify.success("Plot reserved", { description: `${previous.plotNumber} has been secured for you.` });
-        router.push("/account/reservations");
+        router.push(`/reservations/${String(reservation.reference)}/created`);
       } catch (error) {
         setSelected(previous);
         setLivePlots((current) => current.map((plot) => plot.id === previous.id ? previous : plot));

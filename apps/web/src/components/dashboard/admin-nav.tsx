@@ -13,6 +13,7 @@ const links = [
   { href: "/admin/users", label: "User access", icon: UserGroupIcon },
   { href: "/admin/audit", label: "Audit trail", icon: FileValidationIcon },
   { href: "/admin/operations", label: "Operations", icon: Settings02Icon },
+  { href: "/admin/finance", label: "Payments & payouts", icon: FileValidationIcon },
 ];
 
 type AdminNavProps = { collapsed: boolean; mobileOpen: boolean; onToggleCollapse: () => void; onCloseMobile: () => void };

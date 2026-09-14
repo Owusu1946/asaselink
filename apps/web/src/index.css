@@ -13,3 +13,18 @@
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
 }
+
+/* Ticket-like cutouts keep the checkout receipt tactile without using an image. */
+.payment-receipt::before,
+.payment-receipt::after {
+  position: absolute;
+  inset-block: 18px;
+  z-index: 1;
+  width: 12px;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(circle at center, var(--background) 0 5px, transparent 5.5px) center top / 12px 20px repeat-y;
+}
+
+.payment-receipt::before { left: -6px; }
+.payment-receipt::after { right: -6px; }

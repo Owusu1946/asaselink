@@ -12,6 +12,7 @@ import { cn } from "@asaselink/ui/lib/utils";
 const PAGE_META: Record<string, { title: string; description: string }> = {
   "/account": { title: "Buyer overview", description: "Manage verified land activity and documentation." },
   "/account/reservations": { title: "My Reservations", description: "Active parcel reservations, escrow statuses, and deed preparation progress." },
+  "/account/payments": { title: "Payments", description: "Purchase payments and verification status." },
   "/account/saved": { title: "Saved Parcels", description: "Bookmarked plots, price alerts, and estate layouts saved for review." },
   "/account/documents": { title: "Document Vault", description: "Official search reports, cadastral plans, and indenture deeds." },
   "/account/alerts": { title: "Land Alerts", description: "Areas and budgets AsaseLink is actively watching for you." },

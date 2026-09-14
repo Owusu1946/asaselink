@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { getServerApiClient } from "@/utils/server-orpc";
+
+export default async function AccountPaymentsPage() {
+  const api = await getServerApiClient();
+  const payments = await api.payments.listMine() as Record<string, unknown>[];
+  if (!payments.length) return <div className="rounded-2xl border border-dashed border-border p-10 text-center"><h2 className="font-semibold">No payments yet</h2><p className="mt-2 text-sm text-muted-foreground">Payments appear here after you reserve a plot and begin checkout.</p></div>;
+  return <div className="grid gap-4">{payments.map((payment) => <article key={String(payment.reference)} className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm text-muted-foreground">{String(payment.estateName)}</p><h2 className="mt-1 text-lg font-semibold">Plot {String(payment.plotNumber)}</h2></div><span className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{String(payment.status).replaceAll("_", " ")}</span></div><dl className="mt-5 grid gap-4 border-t border-border pt-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Payment reference</dt><dd className="mt-1 font-mono font-semibold">{String(payment.reference)}</dd></div><div><dt className="text-muted-foreground">Method</dt><dd className="mt-1 font-semibold">{String(payment.method).replaceAll("_", " ")}</dd></div><div><dt className="text-muted-foreground">Amount</dt><dd className="mt-1 font-semibold">GHS {Number(payment.amount).toLocaleString()}</dd></div></dl>{payment.status === "INITIATED" ? <Link href={`/reservations/${String(payment.reservationReference)}/payment`} className="mt-5 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">Continue payment</Link> : null}</article>)}</div>;
+}
