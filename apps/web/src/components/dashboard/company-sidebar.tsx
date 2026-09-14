@@ -143,6 +143,12 @@ export function CompanySidebar({
       active: pathname === `/company/${companyId}/staff`,
     },
     {
+      href: `/company/${companyId}/finance`,
+      label: "Payments & Payouts",
+      icon: FileValidationIcon,
+      active: pathname === `/company/${companyId}/finance`,
+    },
+    {
       href: "/workspaces",
       label: "Switch Workspace",
       icon: ShieldCheckIcon,
