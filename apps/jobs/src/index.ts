@@ -58,14 +58,27 @@ async function dispatch(env: Env) {
 async function expireReservations(env: Env) {
   const sql = neon(env.DATABASE_URL);
   await sql`
-    WITH expired AS (
-      UPDATE reservations SET status='EXPIRED', updated_at=now()
-      WHERE status IN ('ACTIVE','PAYMENT_PENDING') AND expires_at <= now()
-      RETURNING id, reference, plot_id, buyer_user_id
+    WITH candidates AS MATERIALIZED (
+      SELECT id FROM reservations
+      WHERE status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','HELD','PURCHASE_IN_PROGRESS') AND expires_at <= now()
+      ORDER BY expires_at LIMIT 100 FOR UPDATE SKIP LOCKED
+    ), expired AS (
+      UPDATE reservations r SET status='EXPIRED', released_at=now(), release_reason='Reservation window elapsed', updated_at=now()
+      FROM candidates WHERE r.id=candidates.id
+      RETURNING r.id, r.reference, r.plot_id, r.buyer_user_id, r.type,
+        r.refundable_amount_snapshot, r.administrative_deduction_snapshot
     ), cancelled_payments AS (
       UPDATE payments SET status='CANCELLED', failed_at=now(), failure_reason='Reservation expired', updated_at=now()
       WHERE reservation_id IN (SELECT id FROM expired) AND status IN ('INITIATED','PENDING_CONFIRMATION')
       RETURNING id, reference, reservation_id
+    ), refunds AS (
+      INSERT INTO reservation_refunds (reservation_id, amount, deduction, reason)
+      SELECT expired.id, expired.refundable_amount_snapshot, expired.administrative_deduction_snapshot, 'Paid hold expired'
+      FROM expired
+      WHERE expired.type='PAID_HOLD' AND expired.refundable_amount_snapshot IS NOT NULL
+        AND EXISTS (SELECT 1 FROM payments WHERE reservation_id=expired.id AND purpose='HOLD_FEE' AND status='SUCCEEDED')
+      ON CONFLICT (reservation_id) DO NOTHING
+      RETURNING id, reservation_id, amount, deduction
     ), available AS (
       UPDATE plots SET status='AVAILABLE', updated_at=now()
       WHERE id IN (SELECT plot_id FROM expired) AND status='RESERVED' RETURNING id
@@ -83,6 +96,11 @@ async function expireReservations(env: Env) {
       INSERT INTO outbox_events (topic, aggregate_id, payload)
       SELECT 'reservation.expired', id::text, jsonb_build_object('reservationId', id, 'reference', reference, 'plotId', plot_id)
       FROM expired
+    ), refund_events AS (
+      INSERT INTO outbox_events (topic, aggregate_id, payload)
+      SELECT 'reservation.refund_requested', id::text,
+        jsonb_build_object('refundId', id, 'reservationId', reservation_id, 'amount', amount, 'deduction', deduction)
+      FROM refunds
     )
     INSERT INTO outbox_events (topic, aggregate_id, payload)
     SELECT 'plot.available', id::text, jsonb_build_object('plotId', id) FROM available

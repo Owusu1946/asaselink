@@ -4,6 +4,7 @@ import type { Geometry } from "geojson";
 import { useState } from "react";
 import { EstateReviewAction } from "./estate-review-action";
 import { PlotEditor, type EstateSitePlan, type ExistingPlot } from "./plot-editor";
+import { EstateConcernManager, type EstateConcern } from "./estate-concern-manager";
 
 interface EstateWorkspaceClientProps {
   estateId: string;
@@ -13,9 +14,11 @@ interface EstateWorkspaceClientProps {
   boundary: Geometry;
   plots: ExistingPlot[];
   sitePlan: EstateSitePlan | null;
+  companyId: string;
+  concerns: EstateConcern[];
 }
 
-export function EstateWorkspaceClient({ estateId, name, region, status, boundary, plots, sitePlan }: EstateWorkspaceClientProps) {
+export function EstateWorkspaceClient({ companyId, estateId, name, region, status, boundary, plots, sitePlan, concerns }: EstateWorkspaceClientProps) {
   const [plotCount, setPlotCount] = useState(plots.length);
 
   return <div className="space-y-6">
@@ -27,6 +30,7 @@ export function EstateWorkspaceClient({ estateId, name, region, status, boundary
       </div>
       <EstateReviewAction estateId={estateId} status={status} plotCount={plotCount} />
     </header>
+    <EstateConcernManager companyId={companyId} estateId={estateId} estateBoundary={boundary} initialConcerns={concerns} />
     <PlotEditor estateId={estateId} estateBoundary={boundary} plots={plots} initialSitePlan={sitePlan} onPlotCreated={() => setPlotCount((count) => count + 1)} />
   </div>;
 }
