@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@asaselink/ui/components/button";
 import { client } from "@/utils/orpc";
 import { notify } from "@/utils/notify";
+import { BankTransferProof } from "./bank-transfer-proof";
 
 const methods = [
+  ["BANK_TRANSFER", "Bank transfer"],
   ["MTN_MOMO", "MTN MoMo"],
   ["TELECEL_CASH", "Telecel Cash"],
   ["AIRTELTIGO_MONEY", "AirtelTigo Money"],
-  ["BANK_TRANSFER", "Bank transfer"],
 ] as const;
 const stages = [
   ["DEPOSIT", "Deposit"],
@@ -30,11 +31,11 @@ export function PurchaseDetail({
 }) {
   const account = data.account;
   const router = useRouter();
-  const [method, setMethod] = useState<(typeof methods)[number][0]>("MTN_MOMO");
+  const [method, setMethod] = useState<(typeof methods)[number][0]>("BANK_TRANSFER");
   const [stage, setStage] = useState<(typeof stages)[number][0]>("INSTALLMENT");
   const [amount, setAmount] = useState(String(account.outstanding));
   const [phone, setPhone] = useState("");
-  const [bankReference, setBankReference] = useState("");
+  const [bankPaymentReference, setBankPaymentReference] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const outstanding = Number(account.outstanding);
   const refunded = data.entries
@@ -50,10 +51,11 @@ export function PurchaseDetail({
           method,
           phone: method === "BANK_TRANSFER" ? undefined : phone.replace(/\s/g, ""),
         });
-        await client.payments.submitMockPayment({
-          paymentReference: String(payment.reference),
-          bankTransferReference: method === "BANK_TRANSFER" ? bankReference : undefined,
-        });
+        if (method === "BANK_TRANSFER") {
+          setBankPaymentReference(String(payment.reference));
+          return;
+        }
+        await client.payments.submitMockPayment({ paymentReference: String(payment.reference) });
         notify.success("Payment submitted", {
           description: "Operations will verify it before your balance changes.",
         });
@@ -154,32 +156,35 @@ export function PurchaseDetail({
                 className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
               />
             </label>
-            <label className="mt-4 block text-xs font-semibold">
-              {method === "BANK_TRANSFER" ? "Transfer reference" : "Mobile number"}
-              <input
-                value={method === "BANK_TRANSFER" ? bankReference : phone}
-                onChange={(e) =>
-                  method === "BANK_TRANSFER"
-                    ? setBankReference(e.target.value)
-                    : setPhone(e.target.value)
-                }
-                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+            {bankPaymentReference ? (
+              <BankTransferProof
+                paymentReference={bankPaymentReference}
+                onSubmitted={() => router.refresh()}
               />
-            </label>
-            <Button
-              className="mt-5 w-full"
-              disabled={
-                pending ||
-                Number(amount) <= 0 ||
-                Number(amount) > outstanding ||
-                (method === "BANK_TRANSFER"
-                  ? bankReference.length < 5
-                  : phone.replace(/\D/g, "").length < 9)
-              }
-              onClick={submit}
-            >
-              {pending ? "Submitting…" : "Submit mock payment"}
-            </Button>
+            ) : (
+              <>
+                <label className="mt-4 block text-xs font-semibold">
+                  Mobile number
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                  />
+                </label>
+                <Button
+                  className="mt-5 w-full"
+                  disabled={
+                    pending ||
+                    Number(amount) <= 0 ||
+                    Number(amount) > outstanding ||
+                    (method !== "BANK_TRANSFER" && phone.replace(/\D/g, "").length < 9)
+                  }
+                  onClick={submit}
+                >
+                  {pending ? "Submitting…" : "Submit mock payment"}
+                </Button>
+              </>
+            )}
             <p className="mt-3 text-xs leading-5 text-muted-foreground">
               No money moves in this MVP. An administrator must verify every submission.
             </p>

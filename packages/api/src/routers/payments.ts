@@ -2,10 +2,19 @@ import { ORPCError } from "@orpc/server";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@asaselink/db";
-import { buyerProfiles, users } from "@asaselink/db/schema";
+import { buyerProfiles, paymentProofs, users } from "@asaselink/db/schema";
 import { protectedProcedure } from "../index";
 import { enforceRateLimit } from "../security/rate-limit";
 import { requireCompanyAccess, requireCompanyPermission } from "../security/company-access";
+import {
+  createDocumentUploadUrl,
+  createDocumentViewUrl,
+  deleteDocumentObject,
+  MAX_PAYMENT_PROOF_BYTES,
+  PAYMENT_PROOF_MIME_TYPES,
+  paymentProofKey,
+  verifyDocumentObject,
+} from "../storage/r2";
 
 const paymentMethod = z.enum(["MTN_MOMO", "TELECEL_CASH", "AIRTELTIGO_MONEY", "BANK_TRANSFER"]);
 const uuid = z.string().uuid();
@@ -53,6 +62,164 @@ function requireUserId(context: { auth?: { userId?: string | null } | null }) {
 }
 
 export const paymentRouter = {
+  bankTransferDetails: protectedProcedure
+    .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
+    .handler(async ({ context, input }) => {
+      const buyer = await requireBuyer(requireUserId(context));
+      const result = await db.execute(sql`
+      SELECT pay.reference,pay.amount,pay.currency,pay.purpose,ba.id AS "bankAccountId",ba.bank_name AS "bankName",
+        ba.account_name AS "accountName",ba.account_number AS "accountNumber",ba.branch,ba.instructions
+      FROM payments pay
+      JOIN LATERAL (SELECT * FROM bank_accounts WHERE is_active=true AND (company_id=pay.company_id OR scope='PLATFORM')
+        ORDER BY CASE WHEN company_id=pay.company_id THEN 0 ELSE 1 END,version DESC LIMIT 1) ba ON true
+      WHERE pay.reference=${input.paymentReference} AND pay.buyer_user_id=${buyer.id} AND pay.method='BANK_TRANSFER' LIMIT 1
+    `);
+      if (!result.rows[0])
+        throw new ORPCError("NOT_FOUND", {
+          message: "No active receiving bank account is configured.",
+        });
+      return result.rows[0];
+    }),
+
+  beginProofUpload: protectedProcedure
+    .input(
+      z.object({
+        paymentReference: z.string().trim().min(4).max(40),
+        fileName: z.string().trim().min(1).max(256),
+        fileSize: z.number().int().positive().max(MAX_PAYMENT_PROOF_BYTES),
+        mimeType: z.enum(PAYMENT_PROOF_MIME_TYPES),
+        checksum: z.string().trim().min(16).max(128),
+        transferReference: z.string().trim().min(5).max(96),
+        transferDate: z.coerce.date(),
+        senderName: z.string().trim().min(2).max(160),
+        senderAccount: z.string().trim().max(80).optional(),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const clerk = requireUserId(context);
+      await enforceRateLimit(clerk, "payment.proof.upload", 12);
+      const buyer = await requireBuyer(clerk);
+      const payment = await db
+        .execute(sql`
+      SELECT pay.id,pay.company_id FROM payments pay WHERE pay.reference=${input.paymentReference} AND pay.buyer_user_id=${buyer.id}
+        AND pay.method='BANK_TRANSFER' AND pay.status='INITIATED' LIMIT 1
+    `)
+        .then((result) => result.rows[0]);
+      if (!payment)
+        throw new ORPCError("CONFLICT", {
+          message: "Only an unsubmitted bank transfer can receive a proof.",
+        });
+      const existing = await db
+        .select({ objectKey: paymentProofs.objectKey })
+        .from(paymentProofs)
+        .where(eq(paymentProofs.paymentId, String(payment.id)))
+        .limit(1);
+      if (existing[0]) await deleteDocumentObject(existing[0].objectKey).catch(() => undefined);
+      const account = await db
+        .execute(
+          sql`SELECT id FROM bank_accounts WHERE is_active=true AND (company_id=${String(payment.company_id)}::uuid OR scope='PLATFORM') ORDER BY CASE WHEN company_id=${String(payment.company_id)}::uuid THEN 0 ELSE 1 END,version DESC LIMIT 1`,
+        )
+        .then((result) => result.rows[0]);
+      if (!account)
+        throw new ORPCError("CONFLICT", { message: "No receiving bank account is configured." });
+      const objectKey = paymentProofKey(buyer.id, String(payment.id), input.fileName);
+      const uploadUrl = await createDocumentUploadUrl(objectKey, input.mimeType);
+      const proof = await db
+        .execute(sql`
+      INSERT INTO payment_proofs (payment_id,bank_account_id,object_key,file_name,mime_type,file_size,checksum,transfer_reference,transfer_date,sender_name,sender_account,status)
+      VALUES (${String(payment.id)}::uuid,${String(account.id)}::uuid,${objectKey},${input.fileName},${input.mimeType},${input.fileSize},${input.checksum},${input.transferReference},${input.transferDate},${input.senderName},${input.senderAccount ?? null},'UPLOADING')
+      ON CONFLICT (payment_id) DO UPDATE SET bank_account_id=excluded.bank_account_id,object_key=excluded.object_key,file_name=excluded.file_name,
+        mime_type=excluded.mime_type,file_size=excluded.file_size,checksum=excluded.checksum,transfer_reference=excluded.transfer_reference,
+        transfer_date=excluded.transfer_date,sender_name=excluded.sender_name,sender_account=excluded.sender_account,status='UPLOADING',uploaded_at=null,submitted_at=null
+      RETURNING id
+    `)
+        .then((result) => result.rows[0]);
+      return { proofId: proof!.id, uploadUrl, expiresIn: 300 };
+    }),
+
+  confirmProofUpload: protectedProcedure
+    .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
+    .handler(async ({ context, input }) => {
+      const buyer = await requireBuyer(requireUserId(context));
+      const proof = await db
+        .execute(
+          sql`SELECT pp.id,pp.object_key,pp.file_size,pp.mime_type FROM payment_proofs pp JOIN payments pay ON pay.id=pp.payment_id WHERE pay.reference=${input.paymentReference} AND pay.buyer_user_id=${buyer.id} AND pay.status='INITIATED' AND pp.status='UPLOADING' LIMIT 1`,
+        )
+        .then((result) => result.rows[0]);
+      if (!proof) throw new ORPCError("NOT_FOUND");
+      const object = await verifyDocumentObject(String(proof.object_key));
+      if (
+        Number(object.ContentLength) !== Number(proof.file_size) ||
+        object.ContentType !== proof.mime_type
+      )
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Uploaded proof metadata does not match the authorized file.",
+        });
+      await db.execute(
+        sql`UPDATE payment_proofs SET status='UPLOADED',uploaded_at=now() WHERE id=${String(proof.id)}::uuid`,
+      );
+      return { status: "UPLOADED" as const };
+    }),
+
+  submitBankTransfer: protectedProcedure
+    .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
+    .handler(async ({ context, input }) => {
+      const buyer = await requireBuyer(requireUserId(context));
+      const result = await db.execute(sql`
+      WITH changed AS (UPDATE payments pay SET status='SUBMITTED',bank_transfer_reference=pp.transfer_reference,updated_at=now()
+        FROM payment_proofs pp WHERE pay.id=pp.payment_id AND pay.reference=${input.paymentReference} AND pay.buyer_user_id=${buyer.id}
+          AND pay.status='INITIATED' AND pp.status='UPLOADED' RETURNING pay.id,pay.reference,pay.status),
+      proofed AS (UPDATE payment_proofs SET status='SUBMITTED',submitted_at=now() WHERE payment_id=(SELECT id FROM changed)),
+      evented AS (INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id)
+        SELECT id,'payment.bank_submitted:'||id::text,'bank_transfer.submitted','INITIATED','SUBMITTED',${buyer.id} FROM changed ON CONFLICT DO NOTHING),
+      audited AS (INSERT INTO audit_logs (user_id,action,entity_type,entity_id,metadata)
+        SELECT ${buyer.id},'payment.proof_submitted','payment',id::text,jsonb_build_object('reference',reference) FROM changed)
+      SELECT reference,status FROM changed
+    `);
+      if (result.rows[0]) return result.rows[0];
+      const existing = await db.execute(
+        sql`SELECT reference,status FROM payments WHERE reference=${input.paymentReference} AND buyer_user_id=${buyer.id} AND status IN ('SUBMITTED','UNDER_VERIFICATION','SUCCEEDED') LIMIT 1`,
+      );
+      if (existing.rows[0]) return existing.rows[0];
+      throw new ORPCError("CONFLICT", {
+        message: "Upload and confirm a valid proof before submitting.",
+      });
+    }),
+
+  getProofViewUrl: protectedProcedure
+    .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
+    .handler(async ({ context, input }) => {
+      const clerk = requireUserId(context);
+      const actor = await db
+        .select({ id: users.id, isAdmin: users.isAdmin })
+        .from(users)
+        .where(eq(users.clerkId, clerk))
+        .limit(1)
+        .then((rows) => rows[0]);
+      if (!actor) throw new ORPCError("UNAUTHORIZED");
+      const proof = await db
+        .execute(
+          sql`SELECT pp.object_key,pp.file_name FROM payment_proofs pp JOIN payments pay ON pay.id=pp.payment_id WHERE pay.reference=${input.paymentReference} AND (pay.buyer_user_id=${actor.id} OR ${actor.isAdmin}) AND pp.status NOT IN ('UPLOADING','CANCELLED') LIMIT 1`,
+        )
+        .then((result) => result.rows[0]);
+      if (!proof) throw new ORPCError("NOT_FOUND");
+      return {
+        url: await createDocumentViewUrl(String(proof.object_key), String(proof.file_name)),
+        expiresIn: 120,
+      };
+    }),
+
+  beginBankReview: protectedProcedure
+    .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
+    .handler(async ({ context, input }) => {
+      const admin = await requireAdmin(requireUserId(context));
+      const result = await db.execute(
+        sql`WITH changed AS (UPDATE payments SET status='UNDER_VERIFICATION',updated_at=now() WHERE reference=${input.paymentReference} AND method='BANK_TRANSFER' AND status='SUBMITTED' RETURNING id,reference,status), proofed AS (UPDATE payment_proofs SET status='UNDER_VERIFICATION' WHERE payment_id=(SELECT id FROM changed)), evented AS (INSERT INTO payment_events(payment_id,event_key,type,from_status,to_status,actor_user_id) SELECT id,'payment.bank_review:'||id::text,'bank_transfer.review_started','SUBMITTED','UNDER_VERIFICATION',${admin.id} FROM changed ON CONFLICT DO NOTHING) SELECT reference,status FROM changed`,
+      );
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", { message: "This proof is not awaiting review." });
+      return result.rows[0];
+    }),
   checkout: protectedProcedure
     .input(z.object({ reservationReference: z.string().trim().min(4).max(32) }))
     .handler(async ({ context, input }) => {
@@ -275,8 +442,9 @@ export const paymentRouter = {
     const payments = await db.execute(sql`
       SELECT pay.reference, pay.provider, pay.provider_reference AS "providerReference", pay.status, pay.method, pay.purpose, pay.amount, pay.currency,
         pay.bank_transfer_reference AS "bankTransferReference", pay.failure_reason AS "failureReason", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt",
+        pp.status AS "proofStatus",pp.file_name AS "proofFileName",pp.transfer_date AS "transferDate",pp.sender_name AS "senderName",
         r.reference AS "reservationReference", p.plot_number AS "plotNumber", e.name AS "estateName", c.legal_name AS "companyName", u.email AS "buyerEmail"
-      FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=pay.company_id JOIN users u ON u.id=pay.buyer_user_id
+      FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=pay.company_id JOIN users u ON u.id=pay.buyer_user_id LEFT JOIN payment_proofs pp ON pp.payment_id=pay.id
       ORDER BY pay.created_at DESC LIMIT 200
     `);
     const payouts = await db.execute(
@@ -315,14 +483,14 @@ export const paymentRouter = {
         input.decision === "APPROVE"
           ? await db.execute(sql`
       WITH candidate AS MATERIALIZED (
-        SELECT pay.id,pay.reference,pay.reservation_id,pay.company_id,pay.developer_net_amount,pay.currency,pay.purpose,
+        SELECT pay.id,pay.reference,pay.reservation_id,pay.company_id,pay.developer_net_amount,pay.currency,pay.purpose,pay.status AS origin_status,
           r.status AS reservation_status,r.plot_id,
           pa.id AS purchase_account_id,pa.price_snapshot,
           coalesce(sum(CASE WHEN ple.status='CONFIRMED' AND ple.direction='CREDIT' THEN ple.amount WHEN ple.status='CONFIRMED' AND ple.direction='DEBIT' THEN -ple.amount ELSE 0 END),0) AS net_paid
         FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id
         LEFT JOIN purchase_accounts pa ON pa.source_reservation_id=r.id
         LEFT JOIN purchase_ledger_entries ple ON ple.purchase_account_id=pa.id
-        WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION' AND p.status='RESERVED'
+        WHERE pay.reference=${input.paymentReference} AND pay.status IN ('PENDING_CONFIRMATION','SUBMITTED','UNDER_VERIFICATION') AND p.status='RESERVED'
         GROUP BY pay.id,r.id,pa.id
       ), paid AS (
         UPDATE payments pay SET status='SUCCEEDED',confirmed_at=now(),updated_at=now()
@@ -363,10 +531,13 @@ export const paymentRouter = {
         INSERT INTO company_ledger_entries (company_id,payment_id,type,status,amount,currency,description,available_at)
         SELECT company_id,id,'SALE_CREDIT','AVAILABLE',developer_net_amount,currency,'Verified purchase payment '||reference,now()
         FROM paid WHERE purpose IN ('PURCHASE','DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT') ON CONFLICT (payment_id,type) DO NOTHING
+      ), proofed AS (
+        UPDATE payment_proofs SET status='CONFIRMED',reviewed_at=now(),reviewed_by_user_id=${admin.id},review_note=${input.reason}
+        WHERE payment_id=(SELECT id FROM paid)
       ), evented AS (
         INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id,metadata)
         SELECT id,'payment.approved:'||id::text,CASE WHEN purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'purchase.payment_approved' END,
-          'PENDING_CONFIRMATION','SUCCEEDED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',purpose) FROM paid
+          candidate.origin_status,'SUCCEEDED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',paid.purpose) FROM paid JOIN candidate ON candidate.id=paid.id
         ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
         INSERT INTO audit_logs (user_id,action,entity_type,entity_id,reason,metadata)
@@ -383,8 +554,11 @@ export const paymentRouter = {
           : await db.execute(sql`
       WITH failed AS (
         UPDATE payments SET status='FAILED',failed_at=now(),failure_reason=${input.reason},updated_at=now()
-        WHERE reference=${input.paymentReference} AND status='PENDING_CONFIRMATION'
-        RETURNING id,reference,reservation_id,purpose
+        WHERE reference=${input.paymentReference} AND status IN ('PENDING_CONFIRMATION','SUBMITTED','UNDER_VERIFICATION')
+        RETURNING id,reference,reservation_id,purpose,method
+      ), proofed AS (
+        UPDATE payment_proofs SET status='REJECTED',reviewed_at=now(),reviewed_by_user_id=${admin.id},review_note=${input.reason}
+        WHERE payment_id=(SELECT id FROM failed)
       ), cancelled AS (
         UPDATE reservations r SET status='CANCELLED',cancelled_at=now(),cancellation_reason=${input.reason},released_at=now(),release_reason=${input.reason},updated_at=now()
         FROM failed WHERE r.id=failed.reservation_id AND failed.purpose IN ('PURCHASE','HOLD_FEE')
@@ -393,7 +567,7 @@ export const paymentRouter = {
         UPDATE plots SET status='AVAILABLE',updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED'
       ), evented AS (
         INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id,metadata)
-        SELECT id,'payment.rejected:'||id::text,'payment.rejected','PENDING_CONFIRMATION','FAILED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',purpose)
+        SELECT id,'payment.rejected:'||id::text,'payment.rejected',CASE WHEN method='BANK_TRANSFER' THEN 'UNDER_VERIFICATION' ELSE 'PENDING_CONFIRMATION' END,'FAILED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',purpose)
         FROM failed ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
         INSERT INTO audit_logs (user_id,action,entity_type,entity_id,reason,metadata)

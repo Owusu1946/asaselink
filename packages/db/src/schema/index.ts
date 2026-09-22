@@ -22,3 +22,4 @@ export * from "./buyer-activity";
 export * from "./payments";
 export * from "./purchases";
 export * from "./screening-layers";
+export * from "./bank-transfers";

@@ -67,7 +67,7 @@ export const payments = pgTable(
     ),
     check(
       "payments_status_check",
-      sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED','FAILED','CANCELLED','REFUNDED')`,
+      sql`${table.status} in ('INITIATED','SUBMITTED','UNDER_VERIFICATION','PENDING_CONFIRMATION','SUCCEEDED','FAILED','CANCELLED','REFUNDED')`,
     ),
     check(
       "payments_purpose_check",

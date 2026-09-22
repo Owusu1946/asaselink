@@ -113,6 +113,20 @@
       "when": 1790078564962,
       "tag": "0015_steep_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790090549204,
+      "tag": "0016_giant_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790090725889,
+      "tag": "0017_new_warbound",
+      "breakpoints": true
     }
   ]
 }
