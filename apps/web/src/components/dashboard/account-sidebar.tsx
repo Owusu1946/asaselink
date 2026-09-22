@@ -133,6 +133,12 @@ export function AccountSidebar({
       active: pathname === "/account/alerts",
     },
     {
+      href: "/account/purchases",
+      label: "Purchases",
+      icon: File01Icon,
+      active: pathname.startsWith("/account/purchases"),
+    },
+    {
       href: "/account/payments",
       label: "Payments",
       icon: File01Icon,

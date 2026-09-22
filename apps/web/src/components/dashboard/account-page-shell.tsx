@@ -13,6 +13,7 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
   "/account": { title: "Buyer overview", description: "Manage verified land activity and documentation." },
   "/account/reservations": { title: "My Reservations", description: "Active parcel reservations, escrow statuses, and deed preparation progress." },
   "/account/payments": { title: "Payments", description: "Purchase payments and verification status." },
+  "/account/purchases": { title: "Purchases", description: "Track balances, installments, credits, refunds, and completion." },
   "/account/saved": { title: "Saved Parcels", description: "Bookmarked plots, price alerts, and estate layouts saved for review." },
   "/account/documents": { title: "Document Vault", description: "Official search reports, cadastral plans, and indenture deeds." },
   "/account/alerts": { title: "Land Alerts", description: "Areas and budgets AsaseLink is actively watching for you." },
@@ -20,7 +21,7 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
 
 export function AccountWorkspaceShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const meta = PAGE_META[pathname] ?? PAGE_META["/account"]!;
+  const meta = PAGE_META[pathname] ?? (pathname.startsWith("/account/purchases/") ? PAGE_META["/account/purchases"] : PAGE_META["/account"])!;
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
