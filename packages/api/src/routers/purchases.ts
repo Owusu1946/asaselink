@@ -56,7 +56,8 @@ export const purchaseRouter = {
           SELECT id, amount FROM payments WHERE reservation_id=r.id AND purpose='HOLD_FEE' AND status='SUCCEEDED' ORDER BY confirmed_at DESC LIMIT 1
         ) hold_payment ON true
         WHERE r.reference=${input.reservationReference} AND r.buyer_user_id=${buyer.id}
-          AND ((r.status='HELD' AND r.expires_at > now()) OR (r.status='CHECKOUT_LOCKED' AND r.expires_at > now()))
+          AND (((r.status='HELD' OR r.status='CHECKOUT_LOCKED') AND r.expires_at > now()) OR
+            (r.status='PURCHASE_IN_PROGRESS' AND EXISTS (SELECT 1 FROM purchase_accounts existing WHERE existing.source_reservation_id=r.id)))
           AND p.status='RESERVED' FOR UPDATE OF r, p
       ), created AS (
         INSERT INTO purchase_accounts (reference, buyer_user_id, company_id, estate_id, plot_id, source_reservation_id, price_snapshot, status, agreed_due_at)
@@ -195,6 +196,25 @@ export const purchaseRouter = {
     `).then((result) => result.rows);
   }),
 
+  adminDetail: protectedProcedure.input(z.object({ purchaseReference: reference })).handler(async ({ context, input }) => {
+    await requireAdmin(clerkId(context));
+    const account = await db.execute(sql`
+      SELECT pa.id,pa.reference,pa.status,pa.price_snapshot AS "priceSnapshot",p.plot_number AS "plotNumber",
+        e.name AS "estateName",c.legal_name AS "companyName",u.email AS "buyerEmail",
+        ${totalsSql} AS "netPaid",greatest(pa.price_snapshot-${totalsSql},0)::numeric(14,2) AS outstanding
+      FROM purchase_accounts pa JOIN plots p ON p.id=pa.plot_id JOIN estates e ON e.id=pa.estate_id
+      JOIN companies c ON c.id=pa.company_id JOIN users u ON u.id=pa.buyer_user_id
+      LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
+      WHERE pa.reference=${input.purchaseReference} GROUP BY pa.id,p.plot_number,e.name,c.legal_name,u.email LIMIT 1
+    `).then((result) => result.rows[0]);
+    if (!account) throw new ORPCError("NOT_FOUND");
+    const entries = await db.execute(sql`
+      SELECT reference,type,direction,status,amount,currency,reason,created_at AS "createdAt"
+      FROM purchase_ledger_entries WHERE purchase_account_id=${String(account.id)}::uuid ORDER BY created_at DESC
+    `);
+    return { account, entries: entries.rows };
+  }),
+
   adminAdjustment: protectedProcedure.input(z.object({ purchaseReference: reference, direction: z.enum(["CREDIT", "DEBIT"]), amount: money, reason: z.string().trim().min(8).max(500) })).handler(async ({ context, input }) => {
     const admin = await requireAdmin(clerkId(context));
     const ledgerReference = makeReference("ADJ");
@@ -231,6 +251,15 @@ export const purchaseRouter = {
         INSERT INTO purchase_ledger_entries (purchase_account_id,reference,type,direction,amount,actor_user_id,reason)
         SELECT id,${ledgerReference},'REFUND','DEBIT',${input.amount},${admin.id},${input.reason} FROM account
         WHERE ${input.amount}::numeric <= net_paid RETURNING id,purchase_account_id,reference,amount
+      ), refund_payment AS (
+        SELECT p.id,p.company_id FROM payments p JOIN account a ON a.source_reservation_id=p.reservation_id
+        WHERE p.status='SUCCEEDED' AND p.purpose IN ('DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT')
+        ORDER BY p.confirmed_at DESC LIMIT 1
+      ), company_debited AS (
+        INSERT INTO company_ledger_entries (company_id,payment_id,type,status,amount,description)
+        SELECT rp.company_id,rp.id,'REFUND_DEBIT','AVAILABLE',refunded.amount,
+          'Refund posted for purchase ' || ${input.purchaseReference}
+        FROM refunded CROSS JOIN refund_payment rp ON CONFLICT (payment_id,type) DO NOTHING
       ), reopened AS (
         UPDATE purchase_accounts SET status='REFUND_PENDING',updated_at=now() WHERE id=(SELECT purchase_account_id FROM refunded)
         RETURNING source_reservation_id,plot_id
@@ -251,6 +280,44 @@ export const purchaseRouter = {
       ) SELECT reference,amount FROM refunded
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Refund exceeds confirmed net payments or the account cannot be refunded." });
+    return result.rows[0];
+  }),
+
+  adminReverse: protectedProcedure.input(z.object({ purchaseReference: reference, ledgerReference: reference, reason: z.string().trim().min(8).max(500) })).handler(async ({ context, input }) => {
+    const admin = await requireAdmin(clerkId(context));
+    const reversalReference = makeReference("REV");
+    const result = await db.execute(sql`
+      WITH locked AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtext(${input.purchaseReference}))),
+      target AS MATERIALIZED (
+        SELECT l.id,l.purchase_account_id,l.payment_id,l.reservation_id,l.direction,l.amount
+        FROM purchase_ledger_entries l JOIN purchase_accounts pa ON pa.id=l.purchase_account_id CROSS JOIN locked
+        WHERE pa.reference=${input.purchaseReference} AND l.reference=${input.ledgerReference} AND l.status='CONFIRMED'
+          AND l.type <> 'REVERSAL' FOR UPDATE OF l
+      ), reversed AS (
+        UPDATE purchase_ledger_entries SET status='REVERSED' WHERE id=(SELECT id FROM target) RETURNING id
+      ), inserted AS (
+        INSERT INTO purchase_ledger_entries (purchase_account_id,payment_id,reservation_id,reversal_of_entry_id,reference,type,direction,amount,actor_user_id,reason)
+        SELECT purchase_account_id,payment_id,reservation_id,id,${reversalReference},'REVERSAL',
+          CASE direction WHEN 'CREDIT' THEN 'DEBIT' ELSE 'CREDIT' END,amount,${admin.id},${input.reason} FROM target
+        RETURNING purchase_account_id,reference,direction,amount
+      ), company_reversed AS (
+        UPDATE company_ledger_entries SET status='REVERSED'
+        WHERE payment_id=(SELECT payment_id FROM target) AND type IN ('SALE_CREDIT','REFUND_DEBIT')
+      ), reopened AS (
+        UPDATE purchase_accounts SET status='PURCHASE_IN_PROGRESS',completed_at=NULL,updated_at=now()
+        WHERE id=(SELECT purchase_account_id FROM inserted) AND (SELECT direction FROM inserted)='DEBIT'
+        RETURNING source_reservation_id,plot_id
+      ), reservation_reopened AS (
+        UPDATE reservations SET status='PURCHASE_IN_PROGRESS',updated_at=now() WHERE id=(SELECT source_reservation_id FROM reopened) AND status='SOLD'
+      ), plot_reopened AS (
+        UPDATE plots SET status='RESERVED',updated_at=now() WHERE id=(SELECT plot_id FROM reopened) AND status='SOLD'
+      ), audited AS (
+        INSERT INTO audit_logs (user_id,action,entity_type,entity_id,reason,metadata)
+        SELECT ${admin.id},'purchase.ledger_reversed','purchase_account',purchase_account_id::text,${input.reason},
+          jsonb_build_object('targetReference',${input.ledgerReference}::text,'reversalReference',reference,'amount',amount) FROM inserted
+      ) SELECT reference,direction,amount FROM inserted
+    `);
+    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "The ledger entry is missing, already reversed, or cannot be reversed." });
     return result.rows[0];
   }),
 };
