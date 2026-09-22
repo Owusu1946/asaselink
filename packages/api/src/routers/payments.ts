@@ -263,7 +263,8 @@ export const paymentRouter = {
       ), outboxed AS (
         INSERT INTO outbox_events (topic, aggregate_id, payload)
         SELECT CASE WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'payment.succeeded' END,
-          id::text, jsonb_build_object('paymentId', id, 'reference', reference, 'purpose', purpose) FROM paid
+          CASE WHEN purpose='HOLD_FEE' THEN reservation_id::text ELSE id::text END,
+          jsonb_build_object('paymentId', id, 'reservationId', reservation_id, 'reference', reference, 'purpose', purpose) FROM paid
       ) SELECT paid.reference, 'SUCCEEDED' AS status, paid.purpose, transitioned.status AS "reservationStatus"
         FROM paid JOIN transitioned ON transitioned.id=paid.reservation_id
     `) : await db.execute(sql`

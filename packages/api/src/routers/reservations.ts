@@ -146,7 +146,7 @@ export const reservationRouter = {
           released_at=now(), release_reason=${input.reason}, updated_at=now()
         FROM plots p, estates e WHERE r.reference=${input.reference} AND r.status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','HELD','PURCHASE_IN_PROGRESS')
           AND p.id=r.plot_id AND e.id=p.estate_id AND e.company_id=${input.companyId}
-        RETURNING r.id, r.reference, r.plot_id
+        RETURNING r.id, r.reference, r.plot_id, r.type, r.refundable_amount_snapshot, r.administrative_deduction_snapshot
       ), payments_cancelled AS (
         UPDATE payments SET status='CANCELLED', failed_at=now(), failure_reason=${input.reason}, updated_at=now()
         WHERE reservation_id=(SELECT id FROM cancelled) AND status IN ('INITIATED','PENDING_CONFIRMATION') RETURNING id
@@ -154,6 +154,12 @@ export const reservationRouter = {
         INSERT INTO payment_events (payment_id, event_key, type, to_status, actor_user_id, metadata)
         SELECT id, 'payment.company_cancelled:' || id::text, 'payment.cancelled_by_company', 'CANCELLED', ${access.user.id}, jsonb_build_object('reason', ${input.reason}::text)
         FROM payments_cancelled ON CONFLICT (event_key) DO NOTHING
+      ), refund_created AS (
+        INSERT INTO reservation_refunds (reservation_id, amount, deduction, reason)
+        SELECT id, refundable_amount_snapshot, administrative_deduction_snapshot, ${input.reason}
+        FROM cancelled WHERE type='PAID_HOLD' AND refundable_amount_snapshot IS NOT NULL
+          AND EXISTS (SELECT 1 FROM payments WHERE reservation_id=cancelled.id AND purpose='HOLD_FEE' AND status='SUCCEEDED')
+        ON CONFLICT (reservation_id) DO NOTHING RETURNING id, reservation_id, amount, deduction
       ), released AS (
         UPDATE plots SET status='AVAILABLE', updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED' RETURNING id
       ), audited AS (
@@ -164,6 +170,8 @@ export const reservationRouter = {
         SELECT 'reservation.cancelled', id::text, jsonb_build_object('reservationId', id, 'reference', reference, 'reason', ${input.reason}::text) FROM cancelled
         UNION ALL
         SELECT 'plot.available', id::text, jsonb_build_object('plotId', id) FROM released
+        UNION ALL
+        SELECT 'reservation.refund_requested', id::text, jsonb_build_object('refundId', id, 'reservationId', reservation_id, 'amount', amount, 'deduction', deduction) FROM refund_created
       ) SELECT reference, 'CANCELLED' AS status FROM cancelled
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only a live checkout or hold can be cancelled." });
