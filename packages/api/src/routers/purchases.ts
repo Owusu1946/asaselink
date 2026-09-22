@@ -138,14 +138,23 @@ export const purchaseRouter = {
       SELECT pa.id, pa.reference, pa.status, pa.price_snapshot AS "priceSnapshot", pa.currency,
         pa.agreed_due_at AS "agreedDueAt", pa.created_at AS "createdAt", p.plot_number AS "plotNumber",
         e.name AS "estateName", c.trade_name AS "companyName", r.reference AS "reservationReference",
+        bank.bank_name AS "bankName", bank.account_name AS "bankAccountName",
+        bank.account_number AS "bankAccountNumber", bank.branch AS "bankBranch",
+        bank.instructions AS "bankInstructions",
         coalesce(sum(CASE WHEN l.type='HOLD_CREDIT' AND l.status='CONFIRMED' THEN l.amount ELSE 0 END),0)::numeric(14,2) AS "holdCredit",
         ${totalsSql} AS "netPaid", greatest(pa.price_snapshot - ${totalsSql},0)::numeric(14,2) AS outstanding,
         now() AS "serverNow"
       FROM purchase_accounts pa JOIN plots p ON p.id=pa.plot_id JOIN estates e ON e.id=pa.estate_id
       JOIN companies c ON c.id=pa.company_id JOIN reservations r ON r.id=pa.source_reservation_id
+      LEFT JOIN LATERAL (
+        SELECT bank_name,account_name,account_number,branch,instructions FROM bank_accounts
+        WHERE is_active=true AND (company_id=pa.company_id OR scope='PLATFORM')
+        ORDER BY CASE WHEN company_id=pa.company_id THEN 0 ELSE 1 END,version DESC LIMIT 1
+      ) bank ON true
       LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
       WHERE pa.reference=${input.purchaseReference} AND pa.buyer_user_id=${buyer.id}
-      GROUP BY pa.id,p.plot_number,e.name,c.trade_name,r.reference LIMIT 1
+      GROUP BY pa.id,p.plot_number,e.name,c.trade_name,r.reference,bank.bank_name,bank.account_name,
+        bank.account_number,bank.branch,bank.instructions LIMIT 1
     `);
       const account = accounts.rows[0];
       if (!account) throw new ORPCError("NOT_FOUND");

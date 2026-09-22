@@ -147,6 +147,43 @@ export function PurchaseDetail({
                 ))}
               </select>
             </label>
+            {method === "BANK_TRANSFER" ? (
+              account.bankAccountNumber ? (
+                <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Pay to
+                  </p>
+                  <p className="mt-2 font-semibold">{String(account.bankName)}</p>
+                  <dl className="mt-3 grid gap-2">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Account name</dt>
+                      <dd className="font-medium">{String(account.bankAccountName)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Account number</dt>
+                      <dd className="font-mono text-base font-bold">
+                        {String(account.bankAccountNumber)}
+                      </dd>
+                    </div>
+                    {account.bankBranch ? (
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Branch</dt>
+                        <dd>{String(account.bankBranch)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  {account.bankInstructions ? (
+                    <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+                      {String(account.bankInstructions)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p role="alert" className="mt-4 text-sm text-destructive">
+                  No receiving bank account is currently configured.
+                </p>
+              )
+            ) : null}
             <label className="mt-4 block text-xs font-semibold">
               Amount
               <input
@@ -163,20 +200,23 @@ export function PurchaseDetail({
               />
             ) : (
               <>
-                <label className="mt-4 block text-xs font-semibold">
-                  Mobile number
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                  />
-                </label>
+                {method !== "BANK_TRANSFER" ? (
+                  <label className="mt-4 block text-xs font-semibold">
+                    Mobile number
+                    <input
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    />
+                  </label>
+                ) : null}
                 <Button
                   className="mt-5 w-full"
                   disabled={
                     pending ||
                     Number(amount) <= 0 ||
                     Number(amount) > outstanding ||
+                    (method === "BANK_TRANSFER" && !account.bankAccountNumber) ||
                     (method !== "BANK_TRANSFER" && phone.replace(/\D/g, "").length < 9)
                   }
                   onClick={submit}
