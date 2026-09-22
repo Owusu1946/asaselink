@@ -559,7 +559,7 @@ export const paymentRouter = {
         WHERE payment_id=(SELECT id FROM paid)
       ), evented AS (
         INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id,metadata)
-        SELECT id,'payment.approved:'||id::text,CASE WHEN purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'purchase.payment_approved' END,
+        SELECT paid.id,'payment.approved:'||paid.id::text,CASE WHEN paid.purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'purchase.payment_approved' END,
           candidate.origin_status,'SUCCEEDED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',paid.purpose) FROM paid JOIN candidate ON candidate.id=paid.id
         ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
