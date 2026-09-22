@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@asaselink/db";
 import { auditLogs, geometryVersions, viabilityChecks } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
-import { polygonSchema } from "../domain/geometry";
+import { estateGeometrySchema, polygonSchema } from "../domain/geometry";
 import { aggregateViabilityResult, type ViabilitySeverity } from "../domain/viability";
 import { requireCompanyPermission } from "../security/company-access";
 import { enforceRateLimit } from "../security/rate-limit";
@@ -14,7 +14,7 @@ const pointSchema = z.object({
   type: z.literal("Point"),
   coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
 });
-const screeningGeometrySchema = z.union([pointSchema, polygonSchema]);
+const screeningGeometrySchema = z.union([pointSchema, estateGeometrySchema]);
 const kindSchema = z.enum(["wetland", "water_body", "waterway", "flood_risk", "protected_area", "planning_restriction", "environmental_restriction", "utility", "other"]);
 const severitySchema = z.enum(["caution", "potential_restriction"]);
 
@@ -66,13 +66,15 @@ export const viabilityRouter = {
     `);
     const layers = result.rows as unknown as LayerRow[];
     const intersections = layers.filter((layer) => layer.intersects);
-    // Prototype coverage is deliberately limited to the neighbourhood around seeded layers.
-    // Official imports will replace this with their declared coverage geometries.
-    const coverageComplete = layers.some((layer) => layer.provenance !== "company_declared");
+    // Concern polygons describe known hazards, not complete geographic coverage.
+    // Keep coverage incomplete until explicit authority coverage geometries are imported.
+    const coverageComplete = false;
     const outcome = aggregateViabilityResult(intersections, coverageComplete);
     const limitations = coverageComplete
-      ? "Prototype and declared layers were checked. This is indicative screening, not official verification."
-      : "No active screening dataset covers this location. Treat the result as caution and seek official verification.";
+      ? "Available screening layers were checked. This is indicative screening, not official verification."
+      : intersections.length > 0
+        ? "A mapped concern intersects this location, but screening coverage remains incomplete. Confirm it with the relevant authority."
+        : "No stored concern polygon intersects this selection, but screening coverage is incomplete. Satellite labels and imagery are not authoritative datasets; seek official verification.";
     const report = { outcome, coverageComplete, limitations, checkedAt: new Date().toISOString(), checkedLayers: layers.length, intersectingLayers: intersections.length };
     const [saved] = await db.insert(viabilityChecks).values({
       submittedGeometry: sql`ST_SetSRID(ST_GeomFromGeoJSON(${geometryJson}), 4326)`,

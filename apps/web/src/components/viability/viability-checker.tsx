@@ -5,13 +5,13 @@ import type mapboxgl from "mapbox-gl";
 import type { FeatureCollection, Polygon } from "geojson";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@asaselink/ui/components/button";
-import { PlaceAutocomplete } from "@/components/company/place-autocomplete";
+import { PlaceAutocomplete, type PlaceSelection } from "@/components/company/place-autocomplete";
 import { client } from "@/utils/orpc";
 import { notify } from "@/utils/notify";
 import { env } from "@asaselink/env/web";
 import { getBrowserLocation } from "@/utils/browser-location";
 
-type ScreeningGeometry = { type: "Point"; coordinates: [number, number] } | { type: "Polygon"; coordinates: [number, number][][] };
+type ScreeningGeometry = { type: "Point"; coordinates: [number, number] } | { type: "Polygon"; coordinates: [number, number][][] } | { type: "MultiPolygon"; coordinates: [number, number][][][] };
 type ScreeningLayer = { id: string; name: string; kind: string; severity: string; provenance: string; sourceName: string; sourceVersion: string | null; coverageNotes: string; confidenceNotes: string | null; intersects: boolean; boundary: Polygon };
 type Report = { id: string; outcome: "CLEAR" | "CAUTION" | "POTENTIAL_RESTRICTION"; coverageComplete: boolean; limitations: string; checkedAt: string | Date; submittedGeometry: ScreeningGeometry; layers: ScreeningLayer[] };
 
@@ -41,6 +41,23 @@ export function ViabilityChecker() {
     drawRef.current?.deleteAll(); mapRef.current?.flyTo({ center: coordinates, zoom, essential: true });
     const source = mapRef.current?.getSource("selected-point") as mapboxgl.GeoJSONSource | undefined;
     source?.setData({ type: "Feature", properties: {}, geometry: point });
+    const estateSource = mapRef.current?.getSource("selected-estate") as mapboxgl.GeoJSONSource | undefined;
+    estateSource?.setData({ type: "FeatureCollection", features: [] });
+  }
+
+  function selectEstate(place: PlaceSelection) {
+    if (!place.boundary) { selectPoint(place.coordinates); return; }
+    modeRef.current = "point"; setMode("point"); setGeometry(place.boundary); setReport(null); drawRef.current?.deleteAll();
+    setLongitude(place.coordinates[0].toFixed(6)); setLatitude(place.coordinates[1].toFixed(6));
+    const pointSource = mapRef.current?.getSource("selected-point") as mapboxgl.GeoJSONSource | undefined;
+    pointSource?.setData({ type: "FeatureCollection", features: [] });
+    const estateSource = mapRef.current?.getSource("selected-estate") as mapboxgl.GeoJSONSource | undefined;
+    estateSource?.setData({ type: "Feature", properties: {}, geometry: place.boundary });
+    const positions = place.boundary.type === "Polygon" ? place.boundary.coordinates.flat(1) : place.boundary.coordinates.flat(2);
+    if (positions.length && mapRef.current) {
+      const lngs = positions.map((position) => position[0]!); const lats = positions.map((position) => position[1]!);
+      mapRef.current.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 48, maxZoom: 16, duration: 900 });
+    }
   }
 
   useEffect(() => {
@@ -60,6 +77,9 @@ export function ViabilityChecker() {
       map.on("load", () => {
         map.addSource("selected-point", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({ id: "selected-point-circle", type: "circle", source: "selected-point", paint: { "circle-radius": 9, "circle-color": "#d5a928", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3 } });
+        map.addSource("selected-estate", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "selected-estate-fill", type: "fill", source: "selected-estate", paint: { "fill-color": "#d5a928", "fill-opacity": 0.18 } });
+        map.addLayer({ id: "selected-estate-line", type: "line", source: "selected-estate", paint: { "line-color": "#fff4c2", "line-width": 3 } });
         map.addSource("screening-results", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({ id: "screening-results-fill", type: "fill", source: "screening-results", paint: { "fill-color": ["match", ["get", "severity"], "potential_restriction", "#b42318", "#d5a928"], "fill-opacity": 0.38 } });
         map.addLayer({ id: "screening-results-line", type: "line", source: "screening-results", paint: { "line-color": ["match", ["get", "severity"], "potential_restriction", "#7a271a", "#854d0e"], "line-width": 3 } });
@@ -106,6 +126,8 @@ export function ViabilityChecker() {
     modeRef.current = next; setMode(next); setGeometry(null); setReport(null); drawRef.current?.deleteAll();
     const source = mapRef.current?.getSource("selected-point") as mapboxgl.GeoJSONSource | undefined;
     source?.setData({ type: "FeatureCollection", features: [] });
+    const estateSource = mapRef.current?.getSource("selected-estate") as mapboxgl.GeoJSONSource | undefined;
+    estateSource?.setData({ type: "FeatureCollection", features: [] });
     if (next === "area") drawRef.current?.changeMode("draw_polygon");
   }
 
@@ -113,7 +135,7 @@ export function ViabilityChecker() {
   return <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.65fr)]">
     <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
       <div className="grid gap-4 border-b border-border p-4 sm:grid-cols-[1fr_auto] sm:p-5">
-        <PlaceAutocomplete onSelect={(place) => { setMode("point"); selectPoint(place.coordinates); }} />
+        <PlaceAutocomplete onSelect={(place) => place.kind === "estate" ? selectEstate(place) : selectPoint(place.coordinates)} />
         <div className="flex self-end rounded-xl bg-muted p-1" aria-label="Selection mode">
           <button type="button" onClick={() => changeMode("point")} className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${mode === "point" ? "bg-background shadow-sm" : "text-muted-foreground"}`}>Point</button>
           <button type="button" onClick={() => changeMode("area")} className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${mode === "area" ? "bg-background shadow-sm" : "text-muted-foreground"}`}>Draw area</button>

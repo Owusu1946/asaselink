@@ -149,17 +149,26 @@ export const landRouter = {
     return { removed: true };
   }),
 
-  listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
+  listPublished: publicProcedure.input(z.object({
+    limit: z.number().int().min(1).max(48).default(24),
+    offset: z.number().int().min(0).default(0),
+    query: z.string().trim().min(2).max(100).optional(),
+  }).optional()).handler(async ({ input }) => {
+    const query = input?.query ? `%${input.query}%` : null;
     const result = await db.execute(sql`
       SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
         c.legal_name AS "companyName",
-        count(p.id) FILTER (WHERE p.status = 'AVAILABLE')::int AS "availablePlots"
+        count(p.id) FILTER (WHERE p.status = 'AVAILABLE')::int AS "availablePlots",
+        ST_X(ST_PointOnSurface(e.boundary))::float AS longitude,
+        ST_Y(ST_PointOnSurface(e.boundary))::float AS latitude,
+        CASE WHEN ${query}::text IS NOT NULL THEN ST_AsGeoJSON(e.boundary)::json ELSE NULL END AS "searchBoundary"
       FROM estates e
       JOIN companies c ON c.id = e.company_id
       LEFT JOIN plots p ON p.estate_id = e.id
       WHERE e.status = 'approved' AND c.status = 'approved'
+        AND (${query}::text IS NULL OR e.name ILIKE ${query} OR c.legal_name ILIKE ${query})
       GROUP BY e.id, c.legal_name
-      ORDER BY e.created_at DESC
+      ORDER BY CASE WHEN ${query}::text IS NOT NULL AND lower(e.name) = lower(${input?.query ?? ""}) THEN 0 ELSE 1 END, e.created_at DESC
       LIMIT ${input?.limit ?? 24} OFFSET ${input?.offset ?? 0}
     `);
     return result.rows;
