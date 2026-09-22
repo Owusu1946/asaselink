@@ -131,7 +131,7 @@ export default function NotFound() {
 
       {/* Minimal Footer */}
       <footer className="border-t border-border/80 py-4 text-center text-xs text-muted-foreground">
-        Ghana Land Registry Compliant · Powered by AsaseLink GIS Engine
+        AsaseLink geographic screening · Not an official title verification
       </footer>
     </div>
   );

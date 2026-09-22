@@ -39,12 +39,20 @@ function CompanyReviewContent() {
   const [submitSuccess, setSubmitSuccess] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
-  const [previewDoc, setPreviewDoc] = React.useState<{ id: string; fileName: string; mimeType: string | null; url?: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = React.useState<{
+    id: string;
+    fileName: string;
+    mimeType: string | null;
+    url?: string;
+  } | null>(null);
 
   const openDocument = async (doc: any) => {
     setPreviewDoc({ id: doc.id, fileName: doc.fileName, mimeType: doc.mimeType });
     try {
-      const result = await orpc.admin.getCompanyDocumentViewUrl.call({ companyId, documentId: doc.id });
+      const result = await orpc.admin.getCompanyDocumentViewUrl.call({
+        companyId,
+        documentId: doc.id,
+      });
       setPreviewDoc((current) => {
         if (!current || current.id !== doc.id) return current;
         return { ...current, url: result.url };
@@ -93,11 +101,19 @@ function CompanyReviewContent() {
         decision,
         reason: reason.trim(),
       });
-      setReviewData((current: any) => current ? { ...current, company: { ...current.company, status: result.newStatus } } : current);
+      setReviewData((current: any) =>
+        current
+          ? { ...current, company: { ...current.company, status: result.newStatus } }
+          : current,
+      );
       setSubmitSuccess(`Application status successfully updated to ${decision.replace("_", " ")}.`);
-      notify.success("Review decision saved", { description: `Application marked ${decision.replace("_", " ")}.` });
+      notify.success("Review decision saved", {
+        description: `Application marked ${decision.replace("_", " ")}.`,
+      });
     } catch (error: unknown) {
-      setSubmitError(error instanceof Error ? error.message : "The review decision could not be saved.");
+      setSubmitError(
+        error instanceof Error ? error.message : "The review decision could not be saved.",
+      );
       notify.apiError(error, "Review decision failed");
     } finally {
       setIsSubmitting(false);
@@ -120,7 +136,10 @@ function CompanyReviewContent() {
     return (
       <div className="min-h-svh bg-background">
         <main className="mx-auto max-w-3xl p-6 sm:p-10">
-          <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive"
+          >
             {loadError || "This company review is unavailable."}
           </div>
         </main>
@@ -135,7 +154,6 @@ function CompanyReviewContent() {
 
   return (
     <div className="min-h-svh bg-background text-foreground">
-
       <main className="mx-auto max-w-6xl p-6 sm:p-10 space-y-8">
         {/* Back Link */}
         <div>
@@ -289,7 +307,8 @@ function CompanyReviewContent() {
                       <div>
                         <div className="font-semibold text-foreground">{doc.fileName}</div>
                         <div className="text-[11px] text-muted-foreground capitalize">
-                          {documentTypeLabel(doc.documentType)} &middot; {fileSizeLabel(doc.fileSize)}
+                          {documentTypeLabel(doc.documentType)} &middot;{" "}
+                          {fileSizeLabel(doc.fileSize)}
                         </div>
                       </div>
                     </div>
@@ -453,7 +472,7 @@ function CompanyReviewContent() {
                       type="button"
                       onClick={() =>
                         applyTemplate(
-                          "Corporate registration verified with Registrar General. All tax and Lands Commission clearances cleared without encumbrance.",
+                          "Company-supplied registration documents reviewed by AsaseLink operations. No title or Lands Commission verification is implied.",
                         )
                       }
                       className="rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors text-left"
@@ -475,7 +494,7 @@ function CompanyReviewContent() {
                       type="button"
                       onClick={() =>
                         applyTemplate(
-                          "Corporate identity documents unverifiable with Lands Commission database.",
+                          "Submitted company identity documents could not be validated during platform review.",
                         )
                       }
                       className="rounded-lg border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors text-left"
@@ -525,7 +544,23 @@ function CompanyReviewContent() {
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
-                {!previewDoc.url ? <div className="grid min-h-80 place-items-center"><Spinner className="size-6" /></div> : previewDoc.mimeType === "application/pdf" ? <iframe title={previewDoc.fileName} src={previewDoc.url} className="h-[65vh] w-full bg-white" /> : <img src={previewDoc.url} alt={previewDoc.fileName} className="max-h-[65vh] w-full object-contain" />}
+                {!previewDoc.url ? (
+                  <div className="grid min-h-80 place-items-center">
+                    <Spinner className="size-6" />
+                  </div>
+                ) : previewDoc.mimeType === "application/pdf" ? (
+                  <iframe
+                    title={previewDoc.fileName}
+                    src={previewDoc.url}
+                    className="h-[65vh] w-full bg-white"
+                  />
+                ) : (
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.fileName}
+                    className="max-h-[65vh] w-full object-contain"
+                  />
+                )}
               </div>
 
               <div className="flex justify-end">

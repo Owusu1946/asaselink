@@ -194,7 +194,11 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
           {/* Top Row: Current Estate Tag & Slide Counter */}
           <div className="flex items-start justify-between gap-2 pointer-events-auto">
             <div className="flex min-w-0 max-w-[calc(100%-4.25rem)] items-center gap-2 rounded-full border border-white/20 bg-black/55 px-2.5 py-2 text-[11px] font-medium text-white backdrop-blur-md sm:max-w-none sm:px-3 sm:text-xs">
-              <HugeiconsIcon icon={Location01Icon} size={15} className="shrink-0 text-brand-gold-400" />
+              <HugeiconsIcon
+                icon={Location01Icon}
+                size={15}
+                className="shrink-0 text-brand-gold-400"
+              />
               <span className="truncate sm:hidden">{activeSlide.location}</span>
               <span className="hidden sm:inline">
                 {activeSlide.name} &middot; {activeSlide.location}
@@ -222,12 +226,16 @@ export function HeroSection({ onSearchCriteriaChange, initialSearchCriteria }: H
 
             {/* Minimal Subtext */}
             <p className="mx-auto mt-4 max-w-[32rem] text-balance text-sm font-medium leading-6 text-white/85 drop-shadow sm:text-lg">
-              Explore verified estates across Ghana. Transparent plots, direct developers.
+              Explore platform-reviewed estates across Ghana. Company-supplied plots, direct
+              developers.
             </p>
 
             {/* Floating Search Capsule */}
             <div className="mt-6 sm:mt-9">
-              <SearchCapsule onSearch={onSearchCriteriaChange} initialCriteria={initialSearchCriteria} />
+              <SearchCapsule
+                onSearch={onSearchCriteriaChange}
+                initialCriteria={initialSearchCriteria}
+              />
             </div>
           </div>
 

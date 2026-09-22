@@ -213,7 +213,7 @@ export function SignInClient() {
       title={step === "identifier" ? "Welcome back" : "Enter verification code"}
       subtitle={
         step === "identifier"
-          ? "Continue your verified land journey."
+          ? "Continue your land discovery journey."
           : `We sent a 6-digit code to ${activeIdentifier}`
       }
     >

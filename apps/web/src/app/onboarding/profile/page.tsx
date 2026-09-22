@@ -33,7 +33,8 @@ export default function BuyerProfileOnboardingPage() {
                 Complete your buyer profile
               </h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Confirm your identity to enable reservations and official plot title documentation.
+                Complete your buyer profile to enable reservations and access company-supplied plot
+                documents.
               </p>
             </div>
 
@@ -51,7 +52,7 @@ export default function BuyerProfileOnboardingPage() {
 
         {/* Footer */}
         <footer className="mx-auto w-full max-w-lg text-center text-xs text-muted-foreground pt-4">
-          Ghana Land Registry Compliant &middot; Protected by AsaseLink Security
+          Company-supplied information &middot; Protected by AsaseLink Security
         </footer>
       </main>
     </ApiProvider>

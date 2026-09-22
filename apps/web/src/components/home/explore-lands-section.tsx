@@ -25,7 +25,12 @@ export interface EstateListing {
   name: string;
   location: string;
   region: string;
-  category: "Gated Communities" | "Hillside & Ridge" | "Coastal Living" | "Urban Enclaves" | "Eco-Reserves";
+  category:
+    | "Gated Communities"
+    | "Hillside & Ridge"
+    | "Coastal Living"
+    | "Urban Enclaves"
+    | "Eco-Reserves";
   image: string;
   priceStart: string;
   priceNumeric: number;
@@ -142,7 +147,10 @@ interface ExploreLandsSectionProps {
   filterCriteria?: SearchCriteria | null;
 }
 
-export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: ExploreLandsSectionProps) {
+export function ExploreLandsSection({
+  estates = ESTATES_DATA,
+  filterCriteria,
+}: ExploreLandsSectionProps) {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string>("All Lands");
@@ -151,16 +159,21 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
-    client.buyer.listSavedIds().then((rows) => {
-      setFavorites(Object.fromEntries(rows.map(({ estateId }) => [estateId, true])));
-    }).catch(() => undefined);
+    client.buyer
+      .listSavedIds()
+      .then((rows) => {
+        setFavorites(Object.fromEntries(rows.map(({ estateId }) => [estateId, true])));
+      })
+      .catch(() => undefined);
   }, [isLoaded, isSignedIn]);
 
   const toggleFavorite = async (e: React.MouseEvent, estate: EstateListing) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isSignedIn) {
-      notify.info("Sign in to save estates", { description: "Your saved parcels will stay synced across devices." });
+      notify.info("Sign in to save estates", {
+        description: "Your saved parcels will stay synced across devices.",
+      });
       router.push(`/sign-in?redirect_url=${encodeURIComponent("/#explore-lands")}`);
       return;
     }
@@ -171,7 +184,9 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
       await client.buyer.setSaved({ estateId: estate.id, saved: next });
       window.dispatchEvent(new Event("asaselink:buyer-data-changed"));
       notify.success(next ? "Estate saved" : "Estate removed", {
-        description: next ? `${estate.name} is now in Saved Parcels.` : `${estate.name} was removed from Saved Parcels.`,
+        description: next
+          ? `${estate.name} is now in Saved Parcels.`
+          : `${estate.name} was removed from Saved Parcels.`,
       });
     } catch (error) {
       setFavorites((prev) => ({ ...prev, [estate.id]: !next }));
@@ -223,17 +238,22 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
   }, [estates, selectedCategory, filterCriteria]);
 
   return (
-    <section id="explore-lands" className="relative py-12 sm:py-16 px-4 sm:px-6 md:px-8 border-t border-border/60">
+    <section
+      id="explore-lands"
+      className="relative py-12 sm:py-16 px-4 sm:px-6 md:px-8 border-t border-border/60"
+    >
       <div className="mx-auto max-w-6xl">
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-brand-green-900 dark:text-brand-green-300">
-              <span className="grid size-8 place-items-center rounded-full bg-brand-green-50 text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300"><HugeiconsIcon icon={SparklesIcon} size={15} /></span>
+              <span className="grid size-8 place-items-center rounded-full bg-brand-green-50 text-brand-green-900 dark:bg-brand-green-950 dark:text-brand-green-300">
+                <HugeiconsIcon icon={SparklesIcon} size={15} />
+              </span>
               <span>Curated Parcels</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Explore verified estates
+              Explore platform-reviewed estates
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Direct developer layouts with verified boundary pegs and transparent pricing.
@@ -241,8 +261,8 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
           </div>
 
           <div className="text-xs font-medium text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{filteredEstates.length}</span> of{" "}
-            {estates.length} verified estates
+            Showing <span className="font-semibold text-foreground">{filteredEstates.length}</span>{" "}
+            of {estates.length} platform-reviewed estates
           </div>
         </div>
 
@@ -270,8 +290,14 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
         {/* Image-First Estate Cards Grid */}
         {filteredEstates.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border p-12 text-center">
-            <HugeiconsIcon icon={Compass01Icon} size={36} className="mx-auto text-muted-foreground mb-3" />
-            <h3 className="text-base font-semibold text-foreground">No estates match your filters</h3>
+            <HugeiconsIcon
+              icon={Compass01Icon}
+              size={36}
+              className="mx-auto text-muted-foreground mb-3"
+            />
+            <h3 className="text-base font-semibold text-foreground">
+              No estates match your filters
+            </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Try adjusting your location, estate type, or budget criteria to see available parcels.
             </p>
@@ -282,7 +308,9 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
             >
               Reset filters
             </button>
-            {filterCriteria && filterCriteria.location !== "All of Ghana" ? <LandAlertPrompt criteria={filterCriteria} /> : null}
+            {filterCriteria && filterCriteria.location !== "All of Ghana" ? (
+              <LandAlertPrompt criteria={filterCriteria} />
+            ) : null}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
@@ -294,7 +322,11 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
                   key={estate.id}
                   className="group relative flex flex-col cursor-pointer transition-transform duration-200"
                 >
-                  <Link href={`/estates/${estate.slug}`} aria-label={`View ${estate.name}`} className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4" />
+                  <Link
+                    href={`/estates/${estate.slug}`}
+                    aria-label={`View ${estate.name}`}
+                    className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4"
+                  />
                   {/* Image Container with Airbnb 4:3 Aspect Ratio */}
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
                     <Image
@@ -310,7 +342,11 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
 
                     {/* Top Left: Verified Developer Badge */}
                     <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2.5 py-1 backdrop-blur-md text-[11px] font-medium text-white shadow">
-                      <HugeiconsIcon icon={ShieldCheckIcon} size={13} className="text-brand-gold-400" />
+                      <HugeiconsIcon
+                        icon={ShieldCheckIcon}
+                        size={13}
+                        className="text-brand-gold-400"
+                      />
                       <span>{estate.developer}</span>
                     </div>
 
@@ -319,7 +355,9 @@ export function ExploreLandsSection({ estates = ESTATES_DATA, filterCriteria }: 
                       type="button"
                       onClick={(e) => void toggleFavorite(e, estate)}
                       disabled={savingId === estate.id}
-                      aria-label={isFav ? `Remove ${estate.name} from saved parcels` : `Save ${estate.name}`}
+                      aria-label={
+                        isFav ? `Remove ${estate.name} from saved parcels` : `Save ${estate.name}`
+                      }
                       aria-pressed={isFav}
                       className="absolute right-3 top-3 z-20 flex size-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
                     >

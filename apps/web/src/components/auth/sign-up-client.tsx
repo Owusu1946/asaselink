@@ -264,7 +264,7 @@ export function SignUpClient() {
         step === "identifier"
           ? intent === "company"
             ? "Register to begin your company verification."
-            : "Start discovering and reserving verified land in Ghana."
+            : "Start discovering and reserving platform-reviewed estate listings in Ghana."
           : `Enter the 6-digit code sent to ${activeIdentifier}`
       }
     >
