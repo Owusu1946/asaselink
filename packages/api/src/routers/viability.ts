@@ -35,7 +35,8 @@ type LayerRow = {
 };
 
 export const viabilityRouter = {
-  screen: publicProcedure.input(z.object({ geometry: screeningGeometrySchema })).handler(async ({ input }) => {
+  screen: publicProcedure.input(z.object({ geometry: screeningGeometrySchema })).handler(async ({ context, input }) => {
+    await enforceRateLimit(context.requestKey, "viability.screen", 20, 60);
     const geometryJson = JSON.stringify(input.geometry);
     const validation = await db.execute(sql`
       SELECT ST_IsValid(candidate) AS valid,
@@ -59,7 +60,7 @@ export const viabilityRouter = {
       FROM screening_layers sl CROSS JOIN candidate
       WHERE sl.active = true
         AND (sl.provenance <> 'company_declared' OR ST_Intersects(sl.boundary, candidate.geom))
-        AND ST_Intersects(ST_Expand(Box2D(candidate.geom)::box2d, 0.3)::geometry, sl.boundary)
+        AND sl.boundary && ST_Expand(candidate.geom, 0.3)
       ORDER BY intersects DESC, sl.severity DESC, sl.name
       LIMIT 100
     `);

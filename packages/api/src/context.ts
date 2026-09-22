@@ -5,7 +5,14 @@ type ClerkContextAuth = {
 type ClerkRequestContext = {
   auth: ClerkContextAuth | null;
   session: null;
+  requestKey: string;
 };
+
+async function anonymousRequestKey(request: Request) {
+  const address = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(address));
+  return `visitor:${Array.from(new Uint8Array(bytes)).slice(0, 12).map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
 
 function toClerkContextAuth(auth: { userId: string | null } | null): ClerkContextAuth | null {
   return auth ? { userId: auth.userId } : null;
@@ -59,6 +66,7 @@ export async function createContext({
   return {
     auth: clerkAuth,
     session: null,
+    requestKey: clerkAuth?.userId ?? await anonymousRequestKey(context.req.raw),
   };
 }
 
