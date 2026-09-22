@@ -1,6 +1,9 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-interface Env { DATABASE_URL: string; EVENTS: Queue<{ eventId: string }> }
+interface Env {
+  DATABASE_URL: string;
+  EVENTS: Queue<{ eventId: string }>;
+}
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
@@ -11,23 +14,46 @@ export default {
     for (const message of batch.messages) {
       try {
         const body = message.body as { eventId?: string };
-        if (!body.eventId) { message.ack(); continue; }
-        const rows = await sql`SELECT id, topic, aggregate_id, payload FROM outbox_events WHERE id=${body.eventId} AND status='processing' LIMIT 1`;
+        if (!body.eventId) {
+          message.ack();
+          continue;
+        }
+        const rows =
+          await sql`SELECT id, topic, aggregate_id, payload FROM outbox_events WHERE id=${body.eventId} AND status='processing' LIMIT 1`;
         const event = rows[0];
-        if (!event) { message.ack(); continue; }
+        if (!event) {
+          message.ack();
+          continue;
+        }
         const payload = event.payload as Record<string, unknown>;
-        if (event.topic === "estate.reviewed" && payload.decision === "approved") await matchLandAlerts(sql, { estateId: String(payload.estateId) });
-        if (event.topic === "plot.available") await matchLandAlerts(sql, { plotId: String(payload.plotId) });
+        if (event.topic === "estate.reviewed" && payload.decision === "approved")
+          await matchLandAlerts(sql, { estateId: String(payload.estateId) });
+        if (event.topic === "plot.available")
+          await matchLandAlerts(sql, { plotId: String(payload.plotId) });
         if (event.topic === "land_alert.mock_delivery") {
           await sql`UPDATE land_alert_matches SET delivery_status='mock_delivered', delivered_at=now() WHERE id=${event.aggregate_id}::uuid AND delivery_status='pending'`;
-          console.log(JSON.stringify({ event: "land_alert.mock_delivered", matchId: event.aggregate_id, channels: payload.channels }));
+          console.log(
+            JSON.stringify({
+              event: "land_alert.mock_delivered",
+              matchId: event.aggregate_id,
+              channels: payload.channels,
+            }),
+          );
         }
-        console.log(JSON.stringify({ event: "outbox.processed", topic: event.topic, aggregateId: event.aggregate_id, eventId: event.id }));
+        console.log(
+          JSON.stringify({
+            event: "outbox.processed",
+            topic: event.topic,
+            aggregateId: event.aggregate_id,
+            eventId: event.id,
+          }),
+        );
         await sql`UPDATE outbox_events SET status='processed', processed_at=now(), last_error=NULL WHERE id=${event.id}`;
         message.ack();
       } catch (error) {
         const body = message.body as { eventId?: string };
-        if (body.eventId) await sql`UPDATE outbox_events SET last_error=${error instanceof Error ? error.message.slice(0, 1000) : "Unknown consumer error"} WHERE id=${body.eventId}`;
+        if (body.eventId)
+          await sql`UPDATE outbox_events SET last_error=${error instanceof Error ? error.message.slice(0, 1000) : "Unknown consumer error"} WHERE id=${body.eventId}`;
         message.retry();
       }
     }
@@ -60,7 +86,7 @@ async function expireReservations(env: Env) {
   await sql`
     WITH candidates AS MATERIALIZED (
       SELECT id FROM reservations
-      WHERE status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','HELD','PURCHASE_IN_PROGRESS') AND expires_at <= now()
+      WHERE status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','HELD') AND expires_at <= now()
       ORDER BY expires_at LIMIT 100 FOR UPDATE SKIP LOCKED
     ), expired AS (
       UPDATE reservations r SET status='EXPIRED', released_at=now(), release_reason='Reservation window elapsed', updated_at=now()
@@ -108,8 +134,12 @@ async function expireReservations(env: Env) {
   await sql`DELETE FROM api_rate_limits WHERE window_started_at < now() - interval '1 day'`;
 }
 
-async function matchLandAlerts(sql: NeonQueryFunction<false, false>, target: { estateId?: string; plotId?: string }) {
-  const estateId = target.estateId ?? null; const plotId = target.plotId ?? null;
+async function matchLandAlerts(
+  sql: NeonQueryFunction<false, false>,
+  target: { estateId?: string; plotId?: string },
+) {
+  const estateId = target.estateId ?? null;
+  const plotId = target.plotId ?? null;
   await sql`
     WITH matches AS (
       INSERT INTO land_alert_matches (alert_id, plot_id)

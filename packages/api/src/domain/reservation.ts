@@ -17,7 +17,7 @@ const transitions: Record<ReservationStatus, readonly ReservationStatus[]> = {
   CHECKOUT_LOCKED: ["PURCHASE_IN_PROGRESS", "CANCELLED", "EXPIRED", "RELEASED"],
   HOLD_PAYMENT_PENDING: ["HELD", "CANCELLED", "EXPIRED", "RELEASED"],
   HELD: ["PURCHASE_IN_PROGRESS", "CANCELLED", "EXPIRED", "RELEASED"],
-  PURCHASE_IN_PROGRESS: ["SOLD", "CANCELLED", "EXPIRED", "RELEASED"],
+  PURCHASE_IN_PROGRESS: ["SOLD", "CANCELLED", "RELEASED"],
   SOLD: [],
   EXPIRED: [],
   RELEASED: [],
@@ -28,11 +28,18 @@ export function canTransitionReservation(from: ReservationStatus, to: Reservatio
   return transitions[from].includes(to);
 }
 
-export function calculateRefundableAmount(holdFee: string, refundPercentage: string, deduction: string) {
+export function calculateRefundableAmount(
+  holdFee: string,
+  refundPercentage: string,
+  deduction: string,
+) {
   const feeCents = Math.round(Number(holdFee) * 100);
   const percentageBasisPoints = Math.round(Number(refundPercentage) * 100);
   const deductionCents = Math.round(Number(deduction) * 100);
-  const refundableCents = Math.max(Math.floor((feeCents * percentageBasisPoints) / 10_000) - deductionCents, 0);
+  const refundableCents = Math.max(
+    Math.floor((feeCents * percentageBasisPoints) / 10_000) - deductionCents,
+    0,
+  );
   return (refundableCents / 100).toFixed(2);
 }
 
