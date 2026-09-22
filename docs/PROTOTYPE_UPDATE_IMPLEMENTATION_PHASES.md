@@ -55,11 +55,20 @@ A user can search for a location, enter coordinates, or select/draw an area on t
 - Display dataset sources, coverage limitations, timestamp, recommended next action, and the required official-verification disclaimer.
 - Make the full flow mobile responsive.
 
+### Company-declared site concerns
+
+- Let authorized company users mark known wetland, waterway, flood-risk, protected/reserved, utility, and other concern areas while mapping an estate.
+- Require a label, concern type, source/provenance note, and acknowledgement that company-declared areas are not official government determinations.
+- Keep these concern polygons inside their estate boundary, version geometry changes, record the actor and reason, and expose them to plot-containment/restriction validation.
+- Show company-declared concerns in the estate workspace and viability report with a visibly different provenance label from official or prototype datasets.
+- Allow authorized users to remove an incorrect declaration without deleting its audit history.
+
 ### Tests and definition of done
 
 - Unit tests cover result aggregation and missing-data caution logic.
 - PostGIS integration tests cover no intersection, single intersection, multiple intersections, invalid geometry, and oversized queries.
 - Browser test covers location selection through rendered report.
+- Company workflow test covers declaring and removing an estate concern, permission enforcement, containment validation, and its appearance in viability screening.
 - All three result categories can be demonstrated with seeded data.
 - The report never claims official verification.
 
