@@ -60,10 +60,29 @@ async function expireReservations(env: Env) {
   await sql`
     WITH expired AS (
       UPDATE reservations SET status='EXPIRED', updated_at=now()
-      WHERE status='ACTIVE' AND expires_at <= now() RETURNING plot_id
+      WHERE status IN ('ACTIVE','PAYMENT_PENDING') AND expires_at <= now()
+      RETURNING id, reference, plot_id, buyer_user_id
+    ), cancelled_payments AS (
+      UPDATE payments SET status='CANCELLED', failed_at=now(), failure_reason='Reservation expired', updated_at=now()
+      WHERE reservation_id IN (SELECT id FROM expired) AND status IN ('INITIATED','PENDING_CONFIRMATION')
+      RETURNING id, reference, reservation_id
     ), available AS (
       UPDATE plots SET status='AVAILABLE', updated_at=now()
       WHERE id IN (SELECT plot_id FROM expired) AND status='RESERVED' RETURNING id
+    ), payment_events_inserted AS (
+      INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, metadata)
+      SELECT id, 'payment.expired:' || id::text, 'payment.cancelled_by_expiry', NULL, 'CANCELLED',
+        jsonb_build_object('reason', 'Reservation expired')
+      FROM cancelled_payments ON CONFLICT (event_key) DO NOTHING
+    ), audited AS (
+      INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata)
+      SELECT buyer_user_id, 'reservation.expired', 'reservation', id::text, 'Reservation window elapsed',
+        jsonb_build_object('reference', reference, 'plotId', plot_id)
+      FROM expired
+    ), expiry_events AS (
+      INSERT INTO outbox_events (topic, aggregate_id, payload)
+      SELECT 'reservation.expired', id::text, jsonb_build_object('reservationId', id, 'reference', reference, 'plotId', plot_id)
+      FROM expired
     )
     INSERT INTO outbox_events (topic, aggregate_id, payload)
     SELECT 'plot.available', id::text, jsonb_build_object('plotId', id) FROM available

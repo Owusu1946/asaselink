@@ -37,6 +37,7 @@ const META: Record<string, { title: string; description: string }> = {
   cadastral: { title: "Cadastral Records", description: "Survey plans and boundary verification records." },
   staff: { title: "Company Staff", description: "Workspace members, roles, and access." },
   finance: { title: "Payments & Payouts", description: "Verified sales, available balance, and payout requests." },
+  reservations: { title: "Reservations", description: "Track buyer holds, payment progress, and released plots." },
 };
 
 export function CompanyWorkspaceShell({ children, initialSummary }: { children: React.ReactNode; initialSummary: CompanyWorkspaceSummary | null }) {

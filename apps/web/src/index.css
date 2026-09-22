@@ -1,6 +1,8 @@
+@import "tailwindcss" source(".");
 @import "@asaselink/ui/globals.css";
 @import "mapbox-gl/dist/mapbox-gl.css";
 @import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+@source "../../../packages/ui/src";
 
 /* Hide scrollbar across all browsers while retaining smooth scroll */
 .no-scrollbar::-webkit-scrollbar {

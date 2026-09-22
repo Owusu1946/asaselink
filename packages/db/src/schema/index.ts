@@ -16,6 +16,7 @@ export * from "./reservations";
 export * from "./outbox-events";
 export * from "./api-rate-limits";
 export * from "./webhook-events";
+export * from "./support-requests";
 export * from "./land-alerts";
 export * from "./buyer-activity";
 export * from "./payments";
