@@ -57,6 +57,7 @@ export function LandingFooter() {
             <Link href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
               Geographic & Boundary Integrity
             </Link>
+            <Link href="/viability" className="text-muted-foreground hover:text-foreground transition-colors">Indicative land viability check</Link>
             <Link href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
               Buyer Reservation Security
             </Link>
