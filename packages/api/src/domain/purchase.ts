@@ -34,6 +34,7 @@ export function validatePurchasePayment(outstanding: string, amount: string) {
   const outstandingCents = toCents(outstanding);
   const amountCents = toCents(amount);
   if (amountCents <= 0n) return { valid: false, reason: "Payment must be greater than zero." };
-  if (amountCents > outstandingCents) return { valid: false, reason: "Payment exceeds the outstanding balance." };
+  if (amountCents > outstandingCents)
+    return { valid: false, reason: "Payment exceeds the outstanding balance." };
   return { valid: true as const };
 }

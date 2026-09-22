@@ -4,7 +4,81 @@ import { StartPurchaseButton } from "@/components/payments/start-purchase-button
 
 export default async function MyReservationsPage() {
   const api = await getServerApiClient();
-  const reservations = await api.reservations.listMine() as Record<string, unknown>[];
-  if (!reservations.length) return <div className="rounded-2xl border border-dashed border-border p-10 text-center"><h2 className="font-semibold">No reservations yet</h2><p className="mt-2 text-sm text-muted-foreground">Choose an available plot from a verified estate.</p><Link href="/#explore-lands" className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground">Explore estates</Link></div>;
-  return <div className="grid gap-4">{reservations.map((reservation) => <article key={String(reservation.id)} className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm text-muted-foreground">{String(reservation.estateName)}</p><h2 className="mt-1 text-lg font-semibold">Plot {String(reservation.plotNumber)}</h2><p className="mt-1 text-xs font-medium text-muted-foreground">{reservation.type === "PAID_HOLD" ? "Paid hold" : "Checkout lock"}</p></div><span className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{String(reservation.status).replaceAll("_", " ")}</span></div><dl className="mt-5 grid gap-4 border-t border-border pt-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Reservation reference</dt><dd className="mt-1 font-semibold">{String(reservation.reference)}</dd></div><div><dt className="text-muted-foreground">Plot price</dt><dd className="mt-1 font-semibold">GHS {Number(reservation.priceSnapshot).toLocaleString()}</dd></div><div><dt className="text-muted-foreground">Authoritative expiry</dt><dd className="mt-1 font-semibold">{new Date(String(reservation.expiresAt)).toLocaleString("en-GH")}</dd></div></dl><div className="mt-5 flex flex-wrap items-center gap-4">{reservation.status === "HOLD_PAYMENT_PENDING" ? <Link href={`/reservations/${String(reservation.reference)}/payment`} className="font-semibold text-primary underline underline-offset-4">Pay hold fee</Link> : ["HELD", "CHECKOUT_LOCKED", "PURCHASE_IN_PROGRESS"].includes(String(reservation.status)) ? <StartPurchaseButton reservationReference={String(reservation.reference)} /> : null}<Link href={`/estates/${String(reservation.estateSlug)}`} className="text-sm font-semibold underline underline-offset-4">View estate</Link></div></article>)}</div>;
+  const reservations = (await api.reservations.listMine()) as Record<string, unknown>[];
+  if (!reservations.length)
+    return (
+      <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+        <h2 className="font-semibold">No reservations yet</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Choose an available plot from a verified estate.
+        </p>
+        <Link
+          href="/#explore-lands"
+          className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground"
+        >
+          Explore estates
+        </Link>
+      </div>
+    );
+  return (
+    <div className="grid gap-4">
+      {reservations.map((reservation) => (
+        <article
+          key={String(reservation.id)}
+          className="rounded-2xl border border-border bg-card p-5"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">{String(reservation.estateName)}</p>
+              <h2 className="mt-1 text-lg font-semibold">Plot {String(reservation.plotNumber)}</h2>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {reservation.type === "PAID_HOLD" ? "Paid hold" : "Checkout lock"}
+              </p>
+            </div>
+            <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold">
+              {String(reservation.status).replaceAll("_", " ")}
+            </span>
+          </div>
+          <dl className="mt-5 grid gap-4 border-t border-border pt-4 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-muted-foreground">Reservation reference</dt>
+              <dd className="mt-1 font-semibold">{String(reservation.reference)}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Plot price</dt>
+              <dd className="mt-1 font-semibold">
+                GHS {Number(reservation.priceSnapshot).toLocaleString()}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Authoritative expiry</dt>
+              <dd className="mt-1 font-semibold">
+                {new Date(String(reservation.expiresAt)).toLocaleString("en-GH")}
+              </dd>
+            </div>
+          </dl>
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            {reservation.status === "HOLD_PAYMENT_PENDING" ? (
+              <Link
+                href={`/reservations/${String(reservation.reference)}/payment`}
+                className="font-semibold text-primary underline underline-offset-4"
+              >
+                Pay hold fee
+              </Link>
+            ) : ["HELD", "CHECKOUT_LOCKED", "PURCHASE_IN_PROGRESS"].includes(
+                String(reservation.status),
+              ) ? (
+              <StartPurchaseButton reservationReference={String(reservation.reference)} />
+            ) : null}
+            <Link
+              href={`/estates/${String(reservation.estateSlug)}`}
+              className="text-sm font-semibold underline underline-offset-4"
+            >
+              View estate
+            </Link>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }

@@ -11,23 +11,39 @@ const reference = z.string().trim().min(4).max(40);
 const uuid = z.string().uuid();
 const stage = z.enum(["DEPOSIT", "INSTALLMENT", "BALANCE", "FINAL_PAYMENT"]);
 const method = z.enum(["MTN_MOMO", "TELECEL_CASH", "AIRTELTIGO_MONEY", "BANK_TRANSFER"]);
-const money = z.coerce.number().positive().max(100_000_000).transform((value) => value.toFixed(2));
+const money = z.coerce
+  .number()
+  .positive()
+  .max(100_000_000)
+  .transform((value) => value.toFixed(2));
 
 function makeReference(prefix: string) {
   return `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
 }
 
 async function requireBuyer(clerkId: string) {
-  const [buyer] = await db.select({ id: users.id }).from(users)
-    .innerJoin(buyerProfiles, and(eq(buyerProfiles.userId, users.id), isNotNull(buyerProfiles.completedAt)))
-    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active"))).limit(1);
-  if (!buyer) throw new ORPCError("FORBIDDEN", { message: "Complete your buyer profile before purchasing a plot." });
+  const [buyer] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(
+      buyerProfiles,
+      and(eq(buyerProfiles.userId, users.id), isNotNull(buyerProfiles.completedAt)),
+    )
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active")))
+    .limit(1);
+  if (!buyer)
+    throw new ORPCError("FORBIDDEN", {
+      message: "Complete your buyer profile before purchasing a plot.",
+    });
   return buyer;
 }
 
 async function requireAdmin(clerkId: string) {
-  const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users)
-    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active"))).limit(1);
+  const [admin] = await db
+    .select({ id: users.id, isAdmin: users.isAdmin })
+    .from(users)
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active")))
+    .limit(1);
   if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
   return admin;
 }
@@ -43,11 +59,13 @@ const totalsSql = sql`
 `;
 
 export const purchaseRouter = {
-  start: protectedProcedure.input(z.object({ reservationReference: reference, agreedDueAt: z.coerce.date().optional() })).handler(async ({ context, input }) => {
-    const buyer = await requireBuyer(clerkId(context));
-    const accountReference = makeReference("PUR");
-    const ledgerReference = makeReference("LED");
-    const result = await db.execute(sql`
+  start: protectedProcedure
+    .input(z.object({ reservationReference: reference, agreedDueAt: z.coerce.date().optional() }))
+    .handler(async ({ context, input }) => {
+      const buyer = await requireBuyer(clerkId(context));
+      const accountReference = makeReference("PUR");
+      const ledgerReference = makeReference("LED");
+      const result = await db.execute(sql`
       WITH eligible AS MATERIALIZED (
         SELECT r.id AS reservation_id, r.plot_id, r.price_snapshot, r.type, e.id AS estate_id, e.company_id,
           hold_payment.id AS hold_payment_id, hold_payment.amount AS hold_amount
@@ -90,13 +108,17 @@ export const purchaseRouter = {
         SELECT 'purchase.started', id::text, jsonb_build_object('purchaseId', id, 'reference', reference) FROM created
       ) SELECT id, reference, price_snapshot AS "priceSnapshot", status FROM selected
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "This hold or checkout is no longer eligible to start a purchase." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message: "This hold or checkout is no longer eligible to start a purchase.",
+        });
+      return result.rows[0];
+    }),
 
   listMine: protectedProcedure.handler(async ({ context }) => {
     const buyer = await requireBuyer(clerkId(context));
-    return db.execute(sql`
+    return db
+      .execute(sql`
       SELECT pa.id, pa.reference, pa.status, pa.price_snapshot AS "priceSnapshot", pa.agreed_due_at AS "agreedDueAt",
         pa.created_at AS "createdAt", p.plot_number AS "plotNumber", e.name AS "estateName",
         ${totalsSql} AS "netPaid", greatest(pa.price_snapshot - ${totalsSql}, 0)::numeric(14,2) AS outstanding
@@ -104,12 +126,15 @@ export const purchaseRouter = {
       LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
       WHERE pa.buyer_user_id=${buyer.id}
       GROUP BY pa.id,p.plot_number,e.name ORDER BY pa.created_at DESC
-    `).then((result) => result.rows);
+    `)
+      .then((result) => result.rows);
   }),
 
-  detail: protectedProcedure.input(z.object({ purchaseReference: reference })).handler(async ({ context, input }) => {
-    const buyer = await requireBuyer(clerkId(context));
-    const accounts = await db.execute(sql`
+  detail: protectedProcedure
+    .input(z.object({ purchaseReference: reference }))
+    .handler(async ({ context, input }) => {
+      const buyer = await requireBuyer(clerkId(context));
+      const accounts = await db.execute(sql`
       SELECT pa.id, pa.reference, pa.status, pa.price_snapshot AS "priceSnapshot", pa.currency,
         pa.agreed_due_at AS "agreedDueAt", pa.created_at AS "createdAt", p.plot_number AS "plotNumber",
         e.name AS "estateName", c.trade_name AS "companyName", r.reference AS "reservationReference",
@@ -122,32 +147,50 @@ export const purchaseRouter = {
       WHERE pa.reference=${input.purchaseReference} AND pa.buyer_user_id=${buyer.id}
       GROUP BY pa.id,p.plot_number,e.name,c.trade_name,r.reference LIMIT 1
     `);
-    const account = accounts.rows[0];
-    if (!account) throw new ORPCError("NOT_FOUND");
-    const entries = await db.execute(sql`
+      const account = accounts.rows[0];
+      if (!account) throw new ORPCError("NOT_FOUND");
+      const entries = await db.execute(sql`
       SELECT reference,type,direction,status,amount,currency,reason,created_at AS "createdAt"
       FROM purchase_ledger_entries WHERE purchase_account_id=${String(account.id)}::uuid ORDER BY created_at
     `);
-    const payments = await db.execute(sql`
+      const payments = await db.execute(sql`
       SELECT reference,purpose,status,method,amount,currency,created_at AS "createdAt",confirmed_at AS "confirmedAt",failure_reason AS "failureReason"
       FROM payments WHERE reservation_id=(SELECT source_reservation_id FROM purchase_accounts WHERE id=${String(account.id)}::uuid)
         AND purpose IN ('DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT') ORDER BY created_at
     `);
-    return { account, entries: entries.rows, payments: payments.rows };
-  }),
+      return { account, entries: entries.rows, payments: payments.rows };
+    }),
 
-  initiatePayment: protectedProcedure.input(z.object({
-    purchaseReference: reference, stage, amount: money, method,
-    phone: z.string().trim().regex(/^\+?[0-9]{9,15}$/).optional(),
-  }).superRefine((value, ctx) => {
-    if (value.method !== "BANK_TRANSFER" && !value.phone) ctx.addIssue({ code: "custom", path: ["phone"], message: "A mobile money number is required." });
-  })).handler(async ({ context, input }) => {
-    const actor = clerkId(context);
-    await enforceRateLimit(actor, "purchase.payment.initiate", 20);
-    const buyer = await requireBuyer(actor);
-    const paymentReference = makeReference("PAY");
-    const providerReference = makeReference("MOCK");
-    const result = await db.execute(sql`
+  initiatePayment: protectedProcedure
+    .input(
+      z
+        .object({
+          purchaseReference: reference,
+          stage,
+          amount: money,
+          method,
+          phone: z
+            .string()
+            .trim()
+            .regex(/^\+?[0-9]{9,15}$/)
+            .optional(),
+        })
+        .superRefine((value, ctx) => {
+          if (value.method !== "BANK_TRANSFER" && !value.phone)
+            ctx.addIssue({
+              code: "custom",
+              path: ["phone"],
+              message: "A mobile money number is required.",
+            });
+        }),
+    )
+    .handler(async ({ context, input }) => {
+      const actor = clerkId(context);
+      await enforceRateLimit(actor, "purchase.payment.initiate", 20);
+      const buyer = await requireBuyer(actor);
+      const paymentReference = makeReference("PAY");
+      const providerReference = makeReference("MOCK");
+      const result = await db.execute(sql`
       WITH locked AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtext(${input.purchaseReference}))),
       account AS MATERIALIZED (
         SELECT pa.id, pa.source_reservation_id, pa.company_id, pa.price_snapshot,
@@ -168,37 +211,50 @@ export const purchaseRouter = {
         FROM created ON CONFLICT (event_key) DO NOTHING
       ) SELECT * FROM created
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "The amount exceeds the outstanding balance or another payment is awaiting review." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message:
+            "The amount exceeds the outstanding balance or another payment is awaiting review.",
+        });
+      return result.rows[0];
+    }),
 
-  listCompany: protectedProcedure.input(z.object({ companyId: uuid })).handler(async ({ context, input }) => {
-    await requireCompanyAccess(clerkId(context), input.companyId);
-    return db.execute(sql`
+  listCompany: protectedProcedure
+    .input(z.object({ companyId: uuid }))
+    .handler(async ({ context, input }) => {
+      await requireCompanyAccess(clerkId(context), input.companyId);
+      return db
+        .execute(sql`
       SELECT pa.reference,pa.status,pa.price_snapshot AS "priceSnapshot",pa.agreed_due_at AS "agreedDueAt",pa.created_at AS "createdAt",
         p.plot_number AS "plotNumber",e.name AS "estateName",u.email AS "buyerEmail",
         ${totalsSql} AS "netPaid",greatest(pa.price_snapshot-${totalsSql},0)::numeric(14,2) AS outstanding
       FROM purchase_accounts pa JOIN plots p ON p.id=pa.plot_id JOIN estates e ON e.id=pa.estate_id JOIN users u ON u.id=pa.buyer_user_id
       LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
       WHERE pa.company_id=${input.companyId} GROUP BY pa.id,p.plot_number,e.name,u.email ORDER BY pa.created_at DESC
-    `).then((result) => result.rows);
-  }),
+    `)
+        .then((result) => result.rows);
+    }),
 
   adminList: protectedProcedure.handler(async ({ context }) => {
     await requireAdmin(clerkId(context));
-    return db.execute(sql`
+    return db
+      .execute(sql`
       SELECT pa.reference,pa.status,pa.price_snapshot AS "priceSnapshot",pa.created_at AS "createdAt",p.plot_number AS "plotNumber",
         e.name AS "estateName",c.legal_name AS "companyName",u.email AS "buyerEmail",
         ${totalsSql} AS "netPaid",greatest(pa.price_snapshot-${totalsSql},0)::numeric(14,2) AS outstanding
       FROM purchase_accounts pa JOIN plots p ON p.id=pa.plot_id JOIN estates e ON e.id=pa.estate_id JOIN companies c ON c.id=pa.company_id
       JOIN users u ON u.id=pa.buyer_user_id LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
       GROUP BY pa.id,p.plot_number,e.name,c.legal_name,u.email ORDER BY pa.created_at DESC
-    `).then((result) => result.rows);
+    `)
+      .then((result) => result.rows);
   }),
 
-  adminDetail: protectedProcedure.input(z.object({ purchaseReference: reference })).handler(async ({ context, input }) => {
-    await requireAdmin(clerkId(context));
-    const account = await db.execute(sql`
+  adminDetail: protectedProcedure
+    .input(z.object({ purchaseReference: reference }))
+    .handler(async ({ context, input }) => {
+      await requireAdmin(clerkId(context));
+      const account = await db
+        .execute(sql`
       SELECT pa.id,pa.reference,pa.status,pa.price_snapshot AS "priceSnapshot",p.plot_number AS "plotNumber",
         e.name AS "estateName",c.legal_name AS "companyName",u.email AS "buyerEmail",
         ${totalsSql} AS "netPaid",greatest(pa.price_snapshot-${totalsSql},0)::numeric(14,2) AS outstanding
@@ -206,19 +262,29 @@ export const purchaseRouter = {
       JOIN companies c ON c.id=pa.company_id JOIN users u ON u.id=pa.buyer_user_id
       LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
       WHERE pa.reference=${input.purchaseReference} GROUP BY pa.id,p.plot_number,e.name,c.legal_name,u.email LIMIT 1
-    `).then((result) => result.rows[0]);
-    if (!account) throw new ORPCError("NOT_FOUND");
-    const entries = await db.execute(sql`
+    `)
+        .then((result) => result.rows[0]);
+      if (!account) throw new ORPCError("NOT_FOUND");
+      const entries = await db.execute(sql`
       SELECT reference,type,direction,status,amount,currency,reason,created_at AS "createdAt"
       FROM purchase_ledger_entries WHERE purchase_account_id=${String(account.id)}::uuid ORDER BY created_at DESC
     `);
-    return { account, entries: entries.rows };
-  }),
+      return { account, entries: entries.rows };
+    }),
 
-  adminAdjustment: protectedProcedure.input(z.object({ purchaseReference: reference, direction: z.enum(["CREDIT", "DEBIT"]), amount: money, reason: z.string().trim().min(8).max(500) })).handler(async ({ context, input }) => {
-    const admin = await requireAdmin(clerkId(context));
-    const ledgerReference = makeReference("ADJ");
-    const result = await db.execute(sql`
+  adminAdjustment: protectedProcedure
+    .input(
+      z.object({
+        purchaseReference: reference,
+        direction: z.enum(["CREDIT", "DEBIT"]),
+        amount: money,
+        reason: z.string().trim().min(8).max(500),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const admin = await requireAdmin(clerkId(context));
+      const ledgerReference = makeReference("ADJ");
+      const result = await db.execute(sql`
       WITH locked AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtext(${input.purchaseReference}))),
       account AS MATERIALIZED (
         SELECT pa.id,pa.price_snapshot,coalesce(sum(CASE WHEN l.status='CONFIRMED' AND l.direction='CREDIT' THEN l.amount WHEN l.status='CONFIRMED' AND l.direction='DEBIT' THEN -l.amount ELSE 0 END),0) AS net_paid
@@ -234,14 +300,25 @@ export const purchaseRouter = {
         SELECT ${admin.id},'purchase.adjusted','purchase_account',purchase_account_id::text,${input.reason},jsonb_build_object('direction',direction,'amount',amount,'reference',reference) FROM inserted
       ) SELECT reference,direction,amount FROM inserted
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Adjustment would over-credit the purchase or the account is not adjustable." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message: "Adjustment would over-credit the purchase or the account is not adjustable.",
+        });
+      return result.rows[0];
+    }),
 
-  adminRefund: protectedProcedure.input(z.object({ purchaseReference: reference, amount: money, reason: z.string().trim().min(8).max(500) })).handler(async ({ context, input }) => {
-    const admin = await requireAdmin(clerkId(context));
-    const ledgerReference = makeReference("REF");
-    const result = await db.execute(sql`
+  adminRefund: protectedProcedure
+    .input(
+      z.object({
+        purchaseReference: reference,
+        amount: money,
+        reason: z.string().trim().min(8).max(500),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const admin = await requireAdmin(clerkId(context));
+      const ledgerReference = makeReference("REF");
+      const result = await db.execute(sql`
       WITH locked AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtext(${input.purchaseReference}))),
       account AS MATERIALIZED (
         SELECT pa.id,pa.source_reservation_id,pa.plot_id,coalesce(sum(CASE WHEN l.status='CONFIRMED' AND l.direction='CREDIT' THEN l.amount WHEN l.status='CONFIRMED' AND l.direction='DEBIT' THEN -l.amount ELSE 0 END),0) AS net_paid
@@ -279,14 +356,25 @@ export const purchaseRouter = {
         SELECT 'purchase.refund_posted',purchase_account_id::text,jsonb_build_object('purchaseId',purchase_account_id,'amount',amount,'reference',reference) FROM refunded
       ) SELECT reference,amount FROM refunded
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Refund exceeds confirmed net payments or the account cannot be refunded." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message: "Refund exceeds confirmed net payments or the account cannot be refunded.",
+        });
+      return result.rows[0];
+    }),
 
-  adminReverse: protectedProcedure.input(z.object({ purchaseReference: reference, ledgerReference: reference, reason: z.string().trim().min(8).max(500) })).handler(async ({ context, input }) => {
-    const admin = await requireAdmin(clerkId(context));
-    const reversalReference = makeReference("REV");
-    const result = await db.execute(sql`
+  adminReverse: protectedProcedure
+    .input(
+      z.object({
+        purchaseReference: reference,
+        ledgerReference: reference,
+        reason: z.string().trim().min(8).max(500),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const admin = await requireAdmin(clerkId(context));
+      const reversalReference = makeReference("REV");
+      const result = await db.execute(sql`
       WITH locked AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtext(${input.purchaseReference}))),
       target AS MATERIALIZED (
         SELECT l.id,l.purchase_account_id,l.payment_id,l.reservation_id,l.direction,l.amount
@@ -317,7 +405,10 @@ export const purchaseRouter = {
           jsonb_build_object('targetReference',${input.ledgerReference}::text,'reversalReference',reference,'amount',amount) FROM inserted
       ) SELECT reference,direction,amount FROM inserted
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "The ledger entry is missing, already reversed, or cannot be reversed." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message: "The ledger entry is missing, already reversed, or cannot be reversed.",
+        });
+      return result.rows[0];
+    }),
 };

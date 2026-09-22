@@ -61,7 +61,12 @@ export function AccountSidebar({
   const [searchFilter, setSearchFilter] = React.useState("");
   const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [activeItemMenu, setActiveItemMenu] = React.useState<string | null>(null);
-  const [counts, setCounts] = React.useState({ reservations: 0, saved: 0, documents: 0, alerts: 0 });
+  const [counts, setCounts] = React.useState({
+    reservations: 0,
+    saved: 0,
+    documents: 0,
+    alerts: 0,
+  });
   const [recentExplorations, setRecentExplorations] = React.useState<RecentSearch[]>([]);
 
   const profileMenuRef = React.useRef<HTMLDivElement>(null);
@@ -290,7 +295,9 @@ export function AccountSidebar({
                       )}
                       onClick={() => {
                         onSelectSearch?.(item.id);
-                        router.push(`/?location=${encodeURIComponent(item.criteria.location)}&type=${encodeURIComponent(item.criteria.type)}&budget=${encodeURIComponent(item.criteria.budget)}#explore-lands`);
+                        router.push(
+                          `/?location=${encodeURIComponent(item.criteria.location)}&type=${encodeURIComponent(item.criteria.type)}&budget=${encodeURIComponent(item.criteria.budget)}#explore-lands`,
+                        );
                       }}
                     >
                       <div className="flex flex-col min-w-0 pr-2">
@@ -333,7 +340,9 @@ export function AccountSidebar({
                             type="button"
                             onClick={async () => {
                               setActiveItemMenu(null);
-                              setRecentExplorations((items) => items.filter((entry) => entry.id !== item.id));
+                              setRecentExplorations((items) =>
+                                items.filter((entry) => entry.id !== item.id),
+                              );
                               try {
                                 await client.buyer.removeExploration({ id: item.id });
                                 notify.success("Exploration removed");
