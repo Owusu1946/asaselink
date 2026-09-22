@@ -25,6 +25,7 @@ export const payments = pgTable("payments", {
   providerReference: varchar("provider_reference", { length: 96 }).notNull(),
   method: varchar("method", { length: 32 }).notNull(),
   status: varchar("status", { length: 32 }).notNull().default("INITIATED"),
+  purpose: varchar("purpose", { length: 24 }).notNull().default("PURCHASE"),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 14, scale: 2 }).notNull().default("0"),
   developerNetAmount: numeric("developer_net_amount", { precision: 14, scale: 2 }).notNull(),
@@ -46,6 +47,7 @@ export const payments = pgTable("payments", {
   check("payments_provider_check", sql`${table.provider} in ('MOCK')`),
   check("payments_method_check", sql`${table.method} in ('MTN_MOMO','TELECEL_CASH','AIRTELTIGO_MONEY','BANK_TRANSFER')`),
   check("payments_status_check", sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED','FAILED','CANCELLED','REFUNDED')`),
+  check("payments_purpose_check", sql`${table.purpose} in ('PURCHASE','HOLD_FEE')`),
   check("payments_amount_check", sql`${table.amount} > 0 and ${table.platformFeeAmount} >= 0 and ${table.developerNetAmount} >= 0 and ${table.amount} = ${table.platformFeeAmount} + ${table.developerNetAmount}`),
   check("payments_currency_check", sql`${table.currency} = 'GHS'`),
 ]);
