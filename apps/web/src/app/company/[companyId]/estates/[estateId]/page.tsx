@@ -1,6 +1,7 @@
 import type { Geometry } from "geojson";
 import { notFound } from "next/navigation";
 import { EstateWorkspaceClient } from "@/components/company/estate-workspace-client";
+import type { EstateConcern } from "@/components/company/estate-concern-manager";
 import { getServerApiClient } from "@/utils/server-orpc";
 
 interface WorkspacePlot { id: string; plotNumber: string; status: string; price: string; areaSquareMeters: string; boundary: Geometry }
@@ -13,7 +14,8 @@ export default async function EstateWorkspacePage({ params }: { params: Promise<
     // The plan is an optional visual aid. Storage/API availability must never
     // turn a valid cadastral workspace into a false 404 or block plot mapping.
     const sitePlan = await api.land.getEstateSitePlan({ companyId, estateId }).catch(() => null);
+    const concerns = await api.viability.listEstateConcerns({ companyId, estateId }).catch(() => []);
     const plots = estate.plots as WorkspacePlot[];
-    return <EstateWorkspaceClient estateId={estateId} name={String(estate.name)} region={String(estate.region)} status={String(estate.status)} boundary={estate.boundary as Geometry} plots={plots} sitePlan={sitePlan} />;
+    return <EstateWorkspaceClient companyId={companyId} estateId={estateId} name={String(estate.name)} region={String(estate.region)} status={String(estate.status)} boundary={estate.boundary as Geometry} plots={plots} sitePlan={sitePlan} concerns={concerns as EstateConcern[]} />;
   } catch { notFound(); }
 }

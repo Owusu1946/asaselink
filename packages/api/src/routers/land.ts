@@ -237,6 +237,7 @@ export const landRouter = {
       if (message.includes("contained by its estate")) throw new ORPCError("BAD_REQUEST", { message: "Keep every plot corner inside the highlighted estate boundary. Small edge differences up to one metre are snapped automatically." });
       if (message.includes("overlaps an existing plot")) throw new ORPCError("CONFLICT", { message: "This boundary overlaps a plot already registered in the estate." });
       if (message.includes("restricted area")) throw new ORPCError("BAD_REQUEST", { message: "This plot crosses a restricted area. Adjust its boundary and try again." });
+      if (message.includes("company-declared concern")) throw new ORPCError("BAD_REQUEST", { message: "This plot crosses a concern area declared for the estate. Review the marked area before mapping this plot." });
       throw error;
     }
     if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");

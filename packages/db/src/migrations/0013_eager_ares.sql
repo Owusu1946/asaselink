@@ -52,3 +52,37 @@ INSERT INTO "screening_layers" ("name", "kind", "severity", "provenance", "sourc
   ('Prototype Wetland - Accra Demonstration', 'wetland', 'potential_restriction', 'prototype', 'AsaseLink prototype seed', '2026.09', 'Demonstration polygon only; not official coverage.', 'Not suitable for legal, planning, environmental, or purchase decisions.', ST_Multi(ST_GeomFromText('POLYGON((-0.235 5.565,-0.220 5.565,-0.220 5.578,-0.235 5.578,-0.235 5.565))',4326))),
   ('Prototype Flood Caution - Tema Demonstration', 'flood_risk', 'caution', 'prototype', 'AsaseLink prototype seed', '2026.09', 'Demonstration polygon only; not an official flood model.', 'Seek professional and authority confirmation.', ST_Multi(ST_GeomFromText('POLYGON((0.000 5.660,0.020 5.660,0.020 5.678,0.000 5.678,0.000 5.660))',4326))),
   ('Prototype Protected Area - Aburi Demonstration', 'protected_area', 'potential_restriction', 'prototype', 'AsaseLink prototype seed', '2026.09', 'Demonstration polygon only; not an official reserve boundary.', 'Seek confirmation from the relevant authority.', ST_Multi(ST_GeomFromText('POLYGON((-0.205 5.825,-0.185 5.825,-0.185 5.842,-0.205 5.842,-0.205 5.825))',4326)));
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION enforce_plot_geometry()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  estate_boundary geometry(MultiPolygon, 4326);
+  clipped_boundary geometry;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.estate_id::text, 0));
+  SELECT boundary INTO estate_boundary FROM estates WHERE id = NEW.estate_id;
+  IF estate_boundary IS NULL THEN RAISE EXCEPTION 'Estate does not exist' USING ERRCODE = '23503'; END IF;
+  IF NOT ST_IsValid(NEW.boundary) OR ST_IsEmpty(NEW.boundary) THEN RAISE EXCEPTION 'Plot boundary is invalid' USING ERRCODE = '23514'; END IF;
+  IF NOT ST_CoveredBy(NEW.boundary, estate_boundary) THEN
+    IF ST_CoveredBy(NEW.boundary, ST_Buffer(estate_boundary::geography, 1)::geometry) THEN
+      clipped_boundary := ST_Intersection(NEW.boundary, estate_boundary);
+      IF GeometryType(clipped_boundary) <> 'POLYGON' OR ST_IsEmpty(clipped_boundary) THEN RAISE EXCEPTION 'Plot boundary must be contained by its estate' USING ERRCODE = '23514'; END IF;
+      NEW.boundary := clipped_boundary;
+    ELSE RAISE EXCEPTION 'Plot boundary must be contained by its estate' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  IF EXISTS (SELECT 1 FROM plots p WHERE p.estate_id = NEW.estate_id AND p.id <> NEW.id AND ST_Area(ST_Intersection(p.boundary, NEW.boundary)::geography) > 0.01) THEN
+    RAISE EXCEPTION 'Plot boundary overlaps an existing plot' USING ERRCODE = '23P01';
+  END IF;
+  IF EXISTS (SELECT 1 FROM restricted_areas r WHERE r.estate_id = NEW.estate_id AND ST_Area(ST_Intersection(r.boundary, NEW.boundary)::geography) > 0.01) THEN
+    RAISE EXCEPTION 'Plot boundary intersects a restricted area' USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (SELECT 1 FROM screening_layers sl WHERE sl.estate_id = NEW.estate_id AND sl.provenance = 'company_declared' AND sl.active = true AND ST_Area(ST_Intersection(sl.boundary, NEW.boundary)::geography) > 0.01) THEN
+    RAISE EXCEPTION 'Plot boundary intersects a company-declared concern area' USING ERRCODE = '23514';
+  END IF;
+  NEW.area_square_meters := ST_Area(NEW.boundary::geography);
+  RETURN NEW;
+END;
+$$;
