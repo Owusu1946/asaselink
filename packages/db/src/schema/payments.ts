@@ -41,13 +41,13 @@ export const payments = pgTable("payments", {
 }, (table) => [
   uniqueIndex("payments_reference_uq").on(table.reference),
   uniqueIndex("payments_provider_reference_uq").on(table.provider, table.providerReference),
-  uniqueIndex("payments_one_open_reservation_uq").on(table.reservationId).where(sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED')`),
+  uniqueIndex("payments_one_open_reservation_uq").on(table.reservationId).where(sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION')`),
   index("payments_buyer_created_idx").on(table.buyerUserId, table.createdAt),
   index("payments_company_status_idx").on(table.companyId, table.status),
   check("payments_provider_check", sql`${table.provider} in ('MOCK')`),
   check("payments_method_check", sql`${table.method} in ('MTN_MOMO','TELECEL_CASH','AIRTELTIGO_MONEY','BANK_TRANSFER')`),
   check("payments_status_check", sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED','FAILED','CANCELLED','REFUNDED')`),
-  check("payments_purpose_check", sql`${table.purpose} in ('PURCHASE','HOLD_FEE')`),
+  check("payments_purpose_check", sql`${table.purpose} in ('PURCHASE','HOLD_FEE','DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT')`),
   check("payments_amount_check", sql`${table.amount} > 0 and ${table.platformFeeAmount} >= 0 and ${table.developerNetAmount} >= 0 and ${table.amount} = ${table.platformFeeAmount} + ${table.developerNetAmount}`),
   check("payments_currency_check", sql`${table.currency} = 'GHS'`),
 ]);

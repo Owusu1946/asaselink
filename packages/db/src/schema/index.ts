@@ -20,4 +20,5 @@ export * from "./support-requests";
 export * from "./land-alerts";
 export * from "./buyer-activity";
 export * from "./payments";
+export * from "./purchases";
 export * from "./screening-layers";
