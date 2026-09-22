@@ -51,6 +51,27 @@ async function requireAdmin(clerkId: string) {
   return admin;
 }
 
+async function requirePaymentReviewer(clerkId: string, paymentReference: string) {
+  const actor = await db
+    .select({ id: users.id, isAdmin: users.isAdmin })
+    .from(users)
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active")))
+    .limit(1)
+    .then((rows) => rows[0]);
+  if (!actor) throw new ORPCError("UNAUTHORIZED");
+  if (actor.isAdmin) return actor;
+  const payment = await db
+    .execute(sql`SELECT company_id FROM payments WHERE reference=${paymentReference} LIMIT 1`)
+    .then((result) => result.rows[0]);
+  if (!payment) throw new ORPCError("NOT_FOUND");
+  const access = await requireCompanyPermission(
+    clerkId,
+    String(payment.company_id),
+    "finance:manage",
+  );
+  return { id: access.user.id, isAdmin: false };
+}
+
 function ref(prefix: string) {
   return `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
 }
@@ -199,10 +220,12 @@ export const paymentRouter = {
       if (!actor) throw new ORPCError("UNAUTHORIZED");
       const proof = await db
         .execute(
-          sql`SELECT pp.object_key,pp.file_name FROM payment_proofs pp JOIN payments pay ON pay.id=pp.payment_id WHERE pay.reference=${input.paymentReference} AND (pay.buyer_user_id=${actor.id} OR ${actor.isAdmin}) AND pp.status NOT IN ('UPLOADING','CANCELLED') LIMIT 1`,
+          sql`SELECT pp.object_key,pp.file_name,pay.buyer_user_id,pay.company_id FROM payment_proofs pp JOIN payments pay ON pay.id=pp.payment_id WHERE pay.reference=${input.paymentReference} AND pp.status NOT IN ('UPLOADING','CANCELLED') LIMIT 1`,
         )
         .then((result) => result.rows[0]);
       if (!proof) throw new ORPCError("NOT_FOUND");
+      if (String(proof.buyer_user_id) !== actor.id && !actor.isAdmin)
+        await requireCompanyPermission(clerk, String(proof.company_id), "finance:manage");
       return {
         url: await createDocumentViewUrl(String(proof.object_key), String(proof.file_name)),
         expiresIn: 120,
@@ -212,7 +235,7 @@ export const paymentRouter = {
   beginBankReview: protectedProcedure
     .input(z.object({ paymentReference: z.string().trim().min(4).max(40) }))
     .handler(async ({ context, input }) => {
-      const admin = await requireAdmin(requireUserId(context));
+      const admin = await requirePaymentReviewer(requireUserId(context), input.paymentReference);
       const result = await db.execute(
         sql`WITH changed AS (UPDATE payments SET status='UNDER_VERIFICATION',updated_at=now() WHERE reference=${input.paymentReference} AND method='BANK_TRANSFER' AND status='SUBMITTED' RETURNING id,reference,status), proofed AS (UPDATE payment_proofs SET status='UNDER_VERIFICATION' WHERE payment_id=(SELECT id FROM changed)), evented AS (INSERT INTO payment_events(payment_id,event_key,type,from_status,to_status,actor_user_id) SELECT id,'payment.bank_review:'||id::text,'bank_transfer.review_started','SUBMITTED','UNDER_VERIFICATION',${admin.id} FROM changed ON CONFLICT DO NOTHING) SELECT reference,status FROM changed`,
       );
@@ -373,8 +396,8 @@ export const paymentRouter = {
       FROM company_ledger_entries WHERE company_id=${input.companyId}
     `);
       const payments = await db.execute(sql`
-      SELECT pay.reference, pay.status, pay.method, pay.purpose, pay.amount, pay.developer_net_amount AS "developerNetAmount", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt", p.plot_number AS "plotNumber", e.name AS "estateName"
-      FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id
+      SELECT pay.reference, pay.status, pay.method, pay.purpose, pay.amount, pay.developer_net_amount AS "developerNetAmount", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt", p.plot_number AS "plotNumber", e.name AS "estateName",pp.status AS "proofStatus"
+      FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id LEFT JOIN payment_proofs pp ON pp.payment_id=pay.id
       WHERE pay.company_id=${input.companyId} ORDER BY pay.created_at DESC LIMIT 100
     `);
       const payouts = await db.execute(
@@ -478,7 +501,7 @@ export const paymentRouter = {
     .handler(async ({ context, input }) => {
       const clerkId = requireUserId(context);
       await enforceRateLimit(clerkId, "admin.payment.review", 60);
-      const admin = await requireAdmin(clerkId);
+      const admin = await requirePaymentReviewer(clerkId, input.paymentReference);
       const result =
         input.decision === "APPROVE"
           ? await db.execute(sql`
