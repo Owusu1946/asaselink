@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import type { Geometry } from "geojson";
-import { Button } from "@asaselink/ui/components/button";
 import { EstatePlotMap, type NearbyLandmark, type PublicPlot } from "./estate-plot-map";
 import { NearbyLandmarks } from "./nearby-landmarks";
 import { client } from "@/utils/orpc";
