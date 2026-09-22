@@ -207,11 +207,18 @@ export const purchaseRouter = {
         FROM purchase_accounts pa CROSS JOIN locked LEFT JOIN purchase_ledger_entries l ON l.purchase_account_id=pa.id
         WHERE pa.reference=${input.purchaseReference} AND pa.buyer_user_id=${buyer.id} AND pa.status='PURCHASE_IN_PROGRESS'
         GROUP BY pa.id
+      ), abandoned AS (
+        UPDATE payments SET status='CANCELLED',failed_at=now(),
+          failure_reason='Replaced by a new buyer payment attempt',updated_at=now()
+        WHERE reservation_id=(SELECT source_reservation_id FROM account)
+          AND status='INITIATED'
+        RETURNING id
       ), created AS (
         INSERT INTO payments (reference,reservation_id,buyer_user_id,company_id,provider,provider_reference,method,status,purpose,amount,platform_fee_amount,developer_net_amount,currency,payer_phone,payer_network)
         SELECT ${paymentReference},source_reservation_id,${buyer.id},company_id,'MOCK',${providerReference},${input.method},'INITIATED',${input.stage},
           ${input.amount},0,${input.amount},'GHS',${input.phone ?? null},${input.method === "BANK_TRANSFER" ? null : input.method}
         FROM account WHERE ${input.amount}::numeric > 0 AND ${input.amount}::numeric <= price_snapshot-net_paid
+          AND (SELECT count(*) FROM abandoned) >= 0
         ON CONFLICT DO NOTHING
         RETURNING id,reference,status,purpose,method,amount,currency,created_at AS "createdAt"
       ), evented AS (
