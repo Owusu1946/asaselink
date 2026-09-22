@@ -10,16 +10,28 @@ import { requireCompanyAccess, requireCompanyPermission } from "../security/comp
 const uuid = z.string().uuid();
 
 async function requireReadyBuyer(clerkId: string) {
-  const [buyer] = await db.select({ id: users.id }).from(users)
-    .innerJoin(buyerProfiles, and(eq(buyerProfiles.userId, users.id), isNotNull(buyerProfiles.completedAt)))
-    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active"))).limit(1);
-  if (!buyer) throw new ORPCError("FORBIDDEN", { message: "Complete your buyer profile before reserving a plot." });
+  const [buyer] = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(
+      buyerProfiles,
+      and(eq(buyerProfiles.userId, users.id), isNotNull(buyerProfiles.completedAt)),
+    )
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active")))
+    .limit(1);
+  if (!buyer)
+    throw new ORPCError("FORBIDDEN", {
+      message: "Complete your buyer profile before reserving a plot.",
+    });
   return buyer;
 }
 
 async function requireAdmin(clerkId: string) {
-  const [admin] = await db.select({ id: users.id, isAdmin: users.isAdmin }).from(users)
-    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active"))).limit(1);
+  const [admin] = await db
+    .select({ id: users.id, isAdmin: users.isAdmin })
+    .from(users)
+    .where(and(eq(users.clerkId, clerkId), eq(users.status, "active")))
+    .limit(1);
   if (!admin?.isAdmin) throw new ORPCError("FORBIDDEN");
   return admin;
 }
@@ -33,17 +45,27 @@ export const reservationRouter = {
         administrative_deduction AS "administrativeDeduction", terms_version AS "termsVersion", terms
       FROM reservation_commercial_settings WHERE active=true LIMIT 1
     `);
-    if (!result.rows[0]) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Reservation terms are not configured." });
+    if (!result.rows[0])
+      throw new ORPCError("INTERNAL_SERVER_ERROR", {
+        message: "Reservation terms are not configured.",
+      });
     return result.rows[0];
   }),
 
-  create: protectedProcedure.input(z.object({ plotId: uuid, type: z.enum(["CHECKOUT_LOCK", "PAID_HOLD"]).default("CHECKOUT_LOCK") })).handler(async ({ context, input }) => {
-    const clerkId = context.auth?.userId;
-    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    await enforceRateLimit(clerkId, "reservation.create", 10);
-    const buyer = await requireReadyBuyer(clerkId);
-    const reference = `ASL-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-    const result = await db.execute(sql`
+  create: protectedProcedure
+    .input(
+      z.object({
+        plotId: uuid,
+        type: z.enum(["CHECKOUT_LOCK", "PAID_HOLD"]).default("CHECKOUT_LOCK"),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await enforceRateLimit(clerkId, "reservation.create", 10);
+      const buyer = await requireReadyBuyer(clerkId);
+      const reference = `ASL-${crypto.randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+      const result = await db.execute(sql`
       WITH settings AS MATERIALIZED (
         SELECT * FROM reservation_commercial_settings WHERE active=true LIMIT 1
       ), claimed AS (
@@ -85,36 +107,58 @@ export const reservationRouter = {
           id::text, jsonb_build_object('reservationId', id, 'plotId', "plotId", 'reference', reference, 'type', type, 'status', status) FROM created
       ) SELECT * FROM created
     `);
-    const reservation = result.rows[0];
-    if (!reservation) throw new ORPCError("CONFLICT", { message: "This plot is no longer available." });
-    return reservation;
-  }),
+      const reservation = result.rows[0];
+      if (!reservation)
+        throw new ORPCError("CONFLICT", { message: "This plot is no longer available." });
+      return reservation;
+    }),
 
   listMine: protectedProcedure.handler(async ({ context }) => {
     const clerkId = context.auth?.userId;
     if (!clerkId) throw new ORPCError("UNAUTHORIZED");
     const buyer = await requireReadyBuyer(clerkId);
-    return db.execute(sql`
+    return db
+      .execute(sql`
       SELECT r.id, r.reference, r.type, r.status, r.price_snapshot AS "priceSnapshot", r.hold_fee_snapshot AS "holdFee",
         r.refundable_amount_snapshot AS "refundableAmount", r.payment_deadline_at AS "paymentDeadlineAt",
         r.hold_started_at AS "holdStartedAt", r.activated_at AS "activatedAt", r.released_at AS "releasedAt",
         r.release_reason AS "releaseReason", r.expires_at AS "expiresAt",
-        p.id AS "plotId", p.plot_number AS "plotNumber", e.name AS "estateName", e.slug AS "estateSlug"
+        p.id AS "plotId", p.plot_number AS "plotNumber", e.name AS "estateName", e.slug AS "estateSlug",
+        purchase.reference AS "purchaseReference"
       FROM reservations r JOIN plots p ON p.id = r.plot_id JOIN estates e ON e.id = p.estate_id
+      LEFT JOIN purchase_accounts purchase ON purchase.source_reservation_id = r.id
       WHERE r.buyer_user_id = ${buyer.id} ORDER BY r.created_at DESC LIMIT 100
-    `).then((result) => result.rows);
+    `)
+      .then((result) => result.rows);
   }),
 
-  listCompany: protectedProcedure.input(z.object({
-    companyId: uuid,
-    status: z.enum(["ALL", "CHECKOUT_LOCKED", "HOLD_PAYMENT_PENDING", "HELD", "PURCHASE_IN_PROGRESS", "SOLD", "CANCELLED", "EXPIRED", "RELEASED"]).default("ALL"),
-    search: z.string().trim().max(100).optional(),
-  })).handler(async ({ context, input }) => {
-    const clerkId = context.auth?.userId;
-    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    await requireCompanyAccess(clerkId, input.companyId);
-    const search = input.search ? `%${input.search}%` : null;
-    return db.execute(sql`
+  listCompany: protectedProcedure
+    .input(
+      z.object({
+        companyId: uuid,
+        status: z
+          .enum([
+            "ALL",
+            "CHECKOUT_LOCKED",
+            "HOLD_PAYMENT_PENDING",
+            "HELD",
+            "PURCHASE_IN_PROGRESS",
+            "SOLD",
+            "CANCELLED",
+            "EXPIRED",
+            "RELEASED",
+          ])
+          .default("ALL"),
+        search: z.string().trim().max(100).optional(),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await requireCompanyAccess(clerkId, input.companyId);
+      const search = input.search ? `%${input.search}%` : null;
+      return db
+        .execute(sql`
       SELECT r.id, r.reference, r.type, r.status, r.price_snapshot AS "priceSnapshot", r.hold_fee_snapshot AS "holdFee",
         r.refundable_amount_snapshot AS "refundableAmount", r.payment_deadline_at AS "paymentDeadlineAt",
         r.hold_started_at AS "holdStartedAt", r.activated_at AS "activatedAt", r.released_at AS "releasedAt",
@@ -133,14 +177,23 @@ export const reservationRouter = {
         AND (${search}::text IS NULL OR r.reference ILIKE ${search} OR p.plot_number ILIKE ${search} OR e.name ILIKE ${search}
           OR coalesce(u.email,'') ILIKE ${search} OR concat_ws(' ',u.first_name,u.last_name) ILIKE ${search})
       ORDER BY CASE WHEN r.status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','HELD','PURCHASE_IN_PROGRESS') THEN 0 ELSE 1 END, r.created_at DESC LIMIT 250
-    `).then((result) => result.rows);
-  }),
+    `)
+        .then((result) => result.rows);
+    }),
 
-  cancelCompany: protectedProcedure.input(z.object({ companyId: uuid, reference: z.string().trim().min(4).max(32), reason: z.string().trim().min(5).max(500) })).handler(async ({ context, input }) => {
-    const clerkId = context.auth?.userId;
-    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    const access = await requireCompanyPermission(clerkId, input.companyId, "reservation:manage");
-    const result = await db.execute(sql`
+  cancelCompany: protectedProcedure
+    .input(
+      z.object({
+        companyId: uuid,
+        reference: z.string().trim().min(4).max(32),
+        reason: z.string().trim().min(5).max(500),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      const access = await requireCompanyPermission(clerkId, input.companyId, "reservation:manage");
+      const result = await db.execute(sql`
       WITH cancelled AS (
         UPDATE reservations r SET status='CANCELLED', cancelled_at=now(), cancellation_reason=${input.reason},
           released_at=now(), release_reason=${input.reason}, updated_at=now()
@@ -174,16 +227,39 @@ export const reservationRouter = {
         SELECT 'reservation.refund_requested', id::text, jsonb_build_object('refundId', id, 'reservationId', reservation_id, 'amount', amount, 'deduction', deduction) FROM refund_created
       ) SELECT reference, 'CANCELLED' AS status FROM cancelled
     `);
-    if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only a live checkout or hold can be cancelled." });
-    return result.rows[0];
-  }),
+      if (!result.rows[0])
+        throw new ORPCError("CONFLICT", {
+          message: "Only a live checkout or hold can be cancelled.",
+        });
+      return result.rows[0];
+    }),
 
-  adminList: protectedProcedure.input(z.object({ search: z.string().trim().max(100).optional(), status: z.enum(["ALL", "CHECKOUT_LOCKED", "HOLD_PAYMENT_PENDING", "HELD", "PURCHASE_IN_PROGRESS", "SOLD", "CANCELLED", "EXPIRED", "RELEASED"]).default("ALL") })).handler(async ({ context, input }) => {
-    const clerkId = context.auth?.userId;
-    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    await requireAdmin(clerkId);
-    const search = input.search ? `%${input.search}%` : null;
-    return db.execute(sql`
+  adminList: protectedProcedure
+    .input(
+      z.object({
+        search: z.string().trim().max(100).optional(),
+        status: z
+          .enum([
+            "ALL",
+            "CHECKOUT_LOCKED",
+            "HOLD_PAYMENT_PENDING",
+            "HELD",
+            "PURCHASE_IN_PROGRESS",
+            "SOLD",
+            "CANCELLED",
+            "EXPIRED",
+            "RELEASED",
+          ])
+          .default("ALL"),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await requireAdmin(clerkId);
+      const search = input.search ? `%${input.search}%` : null;
+      return db
+        .execute(sql`
       SELECT r.id, r.reference, r.type, r.status, r.price_snapshot AS "priceSnapshot", r.hold_fee_snapshot AS "holdFee",
         r.refundable_amount_snapshot AS "refundableAmount", r.payment_deadline_at AS "paymentDeadlineAt",
         r.hold_started_at AS "holdStartedAt", r.activated_at AS "activatedAt", r.expires_at AS "expiresAt", r.created_at AS "createdAt",
@@ -198,23 +274,30 @@ export const reservationRouter = {
       WHERE (${input.status}='ALL' OR r.status=${input.status})
         AND (${search}::text IS NULL OR r.reference ILIKE ${search} OR p.plot_number ILIKE ${search} OR e.name ILIKE ${search} OR c.legal_name ILIKE ${search} OR coalesce(u.email,'') ILIKE ${search} OR coalesce(pay.reference,'') ILIKE ${search})
       ORDER BY r.created_at DESC LIMIT 300
-    `).then((result) => result.rows);
-  }),
+    `)
+        .then((result) => result.rows);
+    }),
 
-  adminTimeline: protectedProcedure.input(z.object({ reference: z.string().trim().min(4).max(32) })).handler(async ({ context, input }) => {
-    const clerkId = context.auth?.userId;
-    if (!clerkId) throw new ORPCError("UNAUTHORIZED");
-    await requireAdmin(clerkId);
-    const reservation = await db.execute(sql`SELECT id FROM reservations WHERE reference=${input.reference} LIMIT 1`);
-    const id = reservation.rows[0]?.id;
-    if (!id) throw new ORPCError("NOT_FOUND");
-    return db.execute(sql`
+  adminTimeline: protectedProcedure
+    .input(z.object({ reference: z.string().trim().min(4).max(32) }))
+    .handler(async ({ context, input }) => {
+      const clerkId = context.auth?.userId;
+      if (!clerkId) throw new ORPCError("UNAUTHORIZED");
+      await requireAdmin(clerkId);
+      const reservation = await db.execute(
+        sql`SELECT id FROM reservations WHERE reference=${input.reference} LIMIT 1`,
+      );
+      const id = reservation.rows[0]?.id;
+      if (!id) throw new ORPCError("NOT_FOUND");
+      return db
+        .execute(sql`
       SELECT action AS type, reason, metadata, created_at AS "createdAt", 'audit' AS source
       FROM audit_logs WHERE entity_type='reservation' AND entity_id=${String(id)}
       UNION ALL
       SELECT pe.type, coalesce(pe.metadata->>'reason', pay.failure_reason) AS reason, pe.metadata, pe.created_at AS "createdAt", 'payment' AS source
       FROM payment_events pe JOIN payments pay ON pay.id=pe.payment_id WHERE pay.reservation_id=${String(id)}::uuid
       ORDER BY "createdAt" DESC
-    `).then((result) => result.rows);
-  }),
+    `)
+        .then((result) => result.rows);
+    }),
 };

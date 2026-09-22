@@ -8,9 +8,11 @@ import { notify } from "@/utils/notify";
 
 export function StartPurchaseButton({
   reservationReference,
+  purchaseReference,
   label = "Continue purchase",
 }: {
   reservationReference: string;
+  purchaseReference?: string;
   label?: string;
 }) {
   const router = useRouter();
@@ -22,6 +24,10 @@ export function StartPurchaseButton({
       onClick={() =>
         startTransition(async () => {
           try {
+            if (purchaseReference) {
+              router.push(`/account/purchases/${purchaseReference}`);
+              return;
+            }
             const purchase = await client.purchases.start({ reservationReference });
             router.push(`/account/purchases/${String(purchase.reference)}`);
           } catch (error) {

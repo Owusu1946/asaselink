@@ -68,7 +68,12 @@ export default async function MyReservationsPage() {
             ) : ["HELD", "CHECKOUT_LOCKED", "PURCHASE_IN_PROGRESS"].includes(
                 String(reservation.status),
               ) ? (
-              <StartPurchaseButton reservationReference={String(reservation.reference)} />
+              <StartPurchaseButton
+                reservationReference={String(reservation.reference)}
+                purchaseReference={
+                  reservation.purchaseReference ? String(reservation.purchaseReference) : undefined
+                }
+              />
             ) : null}
             <Link
               href={`/estates/${String(reservation.estateSlug)}`}
