@@ -9,6 +9,7 @@ import { PlaceAutocomplete } from "@/components/company/place-autocomplete";
 import { client } from "@/utils/orpc";
 import { notify } from "@/utils/notify";
 import { env } from "@asaselink/env/web";
+import { getBrowserLocation } from "@/utils/browser-location";
 
 type ScreeningGeometry = { type: "Point"; coordinates: [number, number] } | { type: "Polygon"; coordinates: [number, number][][] };
 type ScreeningLayer = { id: string; name: string; kind: string; severity: string; provenance: string; sourceName: string; sourceVersion: string | null; coverageNotes: string; confidenceNotes: string | null; intersects: boolean; boundary: Polygon };
@@ -30,6 +31,7 @@ export function ViabilityChecker() {
   const [longitude, setLongitude] = useState("-0.1870");
   const [report, setReport] = useState<Report | null>(null);
   const [mode, setMode] = useState<"point" | "area">("point");
+  const [isLocating, setIsLocating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function selectPoint(coordinates: [number, number], zoom = 15) {
@@ -79,6 +81,19 @@ export function ViabilityChecker() {
     setMode("point"); selectPoint([lng, lat]);
   }
 
+  async function useCurrentLocation() {
+    setIsLocating(true);
+    try {
+      const coordinates = await getBrowserLocation();
+      selectPoint(coordinates, 16);
+      notify.success("Current location selected");
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Your current location could not be determined.");
+    } finally {
+      setIsLocating(false);
+    }
+  }
+
   function runCheck() {
     if (!geometry) { notify.error("Select a point or draw an area first."); return; }
     startTransition(async () => {
@@ -105,10 +120,11 @@ export function ViabilityChecker() {
         </div>
       </div>
       <div ref={containerRef} className="h-[28rem] w-full sm:h-[34rem]" aria-label="Land viability screening map" />
-      <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-[1fr_1fr_auto] sm:p-5">
+      <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] sm:p-5">
         <label className="text-sm font-medium">Latitude<input value={latitude} onChange={(event) => setLatitude(event.target.value)} inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" /></label>
         <label className="text-sm font-medium">Longitude<input value={longitude} onChange={(event) => setLongitude(event.target.value)} inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" /></label>
         <Button type="button" variant="outline" onClick={useCoordinates} className="self-end">Use coordinates</Button>
+        <Button type="button" variant="outline" onClick={() => void useCurrentLocation()} disabled={isLocating} className="self-end">{isLocating ? "Locating…" : "Use current location"}</Button>
       </div>
     </section>
     <aside className="space-y-4">
