@@ -39,13 +39,17 @@ export const paymentRouter = {
   checkout: protectedProcedure.input(z.object({ reservationReference: z.string().trim().min(4).max(32) })).handler(async ({ context, input }) => {
     const buyer = await requireBuyer(requireUserId(context));
     const result = await db.execute(sql`
-      SELECT r.reference AS "reservationReference", r.status AS "reservationStatus", r.price_snapshot AS amount,
-        r.expires_at AS "expiresAt", p.plot_number AS "plotNumber", e.name AS "estateName", c.trade_name AS "companyName",
-        pay.reference AS "paymentReference", pay.status AS "paymentStatus", pay.method
+      SELECT r.reference AS "reservationReference", r.type AS "reservationType", r.status AS "reservationStatus",
+        CASE WHEN r.type='PAID_HOLD' THEN r.hold_fee_snapshot ELSE r.price_snapshot END AS amount,
+        r.price_snapshot AS "plotPrice", r.refundable_amount_snapshot AS "refundableAmount",
+        r.administrative_deduction_snapshot AS "administrativeDeduction", r.terms_snapshot AS terms,
+        r.payment_deadline_at AS "paymentDeadlineAt", r.expires_at AS "expiresAt", now() AS "serverNow",
+        p.plot_number AS "plotNumber", e.name AS "estateName", c.trade_name AS "companyName",
+        pay.reference AS "paymentReference", pay.status AS "paymentStatus", pay.method, pay.purpose
       FROM reservations r
       JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=e.company_id
       LEFT JOIN LATERAL (
-        SELECT reference, status, method FROM payments WHERE reservation_id=r.id ORDER BY created_at DESC LIMIT 1
+        SELECT reference, status, method, purpose FROM payments WHERE reservation_id=r.id ORDER BY created_at DESC LIMIT 1
       ) pay ON true
       WHERE r.reference=${input.reservationReference} AND r.buyer_user_id=${buyer.id}
       LIMIT 1
@@ -69,30 +73,34 @@ export const paymentRouter = {
     const providerReference = ref("MOCK");
     const result = await db.execute(sql`
       WITH eligible AS MATERIALIZED (
-        SELECT r.id, r.price_snapshot, e.company_id
+        SELECT r.id, r.type, r.price_snapshot, r.hold_fee_snapshot, e.company_id
         FROM reservations r JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id
         WHERE r.reference=${input.reservationReference} AND r.buyer_user_id=${buyer.id}
-          AND r.status IN ('ACTIVE','PAYMENT_PENDING') AND r.expires_at > now()
+          AND r.status IN ('CHECKOUT_LOCKED','HOLD_PAYMENT_PENDING','PURCHASE_IN_PROGRESS') AND r.expires_at > now()
         FOR UPDATE OF r
       ), created AS (
-        INSERT INTO payments (reference, reservation_id, buyer_user_id, company_id, provider, provider_reference, method, status, amount, platform_fee_amount, developer_net_amount, currency, payer_phone, payer_network)
-        SELECT ${reference}, id, ${buyer.id}, company_id, 'MOCK', ${providerReference}, ${input.method}, 'INITIATED', price_snapshot, 0, price_snapshot, 'GHS', ${input.phone ?? null}, ${input.method === "BANK_TRANSFER" ? null : input.method}
+        INSERT INTO payments (reference, reservation_id, buyer_user_id, company_id, provider, provider_reference, method, status, purpose, amount, platform_fee_amount, developer_net_amount, currency, payer_phone, payer_network)
+        SELECT ${reference}, id, ${buyer.id}, company_id, 'MOCK', ${providerReference}, ${input.method}, 'INITIATED',
+          CASE WHEN type='PAID_HOLD' THEN 'HOLD_FEE' ELSE 'PURCHASE' END,
+          CASE WHEN type='PAID_HOLD' THEN hold_fee_snapshot ELSE price_snapshot END, 0,
+          CASE WHEN type='PAID_HOLD' THEN hold_fee_snapshot ELSE price_snapshot END,
+          'GHS', ${input.phone ?? null}, ${input.method === "BANK_TRANSFER" ? null : input.method}
         FROM eligible ON CONFLICT DO NOTHING
-        RETURNING id, reference, reservation_id, status, method, amount, currency, created_at AS "createdAt"
+        RETURNING id, reference, reservation_id, status, method, purpose, amount, currency, created_at AS "createdAt"
       ), selected AS (
         SELECT * FROM created UNION ALL
-        SELECT p.id, p.reference, p.reservation_id, p.status, p.method, p.amount, p.currency, p.created_at AS "createdAt"
+        SELECT p.id, p.reference, p.reservation_id, p.status, p.method, p.purpose, p.amount, p.currency, p.created_at AS "createdAt"
         FROM payments p JOIN eligible e ON e.id=p.reservation_id
         WHERE p.status IN ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED') AND NOT EXISTS (SELECT 1 FROM created)
         ORDER BY "createdAt" DESC LIMIT 1
       ), moved AS (
-        UPDATE reservations SET status='PAYMENT_PENDING', updated_at=now()
-        WHERE id=(SELECT reservation_id FROM selected) AND status='ACTIVE'
+        UPDATE reservations SET status='PURCHASE_IN_PROGRESS', updated_at=now()
+        WHERE id=(SELECT reservation_id FROM selected) AND type='CHECKOUT_LOCK' AND status='CHECKOUT_LOCKED'
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, to_status, actor_user_id, metadata)
         SELECT id, 'payment.initiated:' || id::text, 'payment.initiated', status, ${buyer.id}, jsonb_build_object('method', method)
         FROM created ON CONFLICT (event_key) DO NOTHING
-      ) SELECT id, reference, status, method, amount, currency, "createdAt" FROM selected
+      ) SELECT id, reference, status, method, purpose, amount, currency, "createdAt" FROM selected
     `);
     const payment = result.rows[0];
     if (!payment) throw new ORPCError("CONFLICT", { message: "This reservation expired or can no longer be paid." });
@@ -134,7 +142,7 @@ export const paymentRouter = {
   listMine: protectedProcedure.handler(async ({ context }) => {
     const buyer = await requireBuyer(requireUserId(context));
     return db.execute(sql`
-      SELECT pay.reference, pay.status, pay.method, pay.amount, pay.currency, pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt",
+      SELECT pay.reference, pay.status, pay.method, pay.purpose, pay.amount, pay.currency, pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt",
         r.reference AS "reservationReference", p.plot_number AS "plotNumber", e.name AS "estateName"
       FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id
       WHERE pay.buyer_user_id=${buyer.id} ORDER BY pay.created_at DESC LIMIT 100
@@ -149,7 +157,7 @@ export const paymentRouter = {
       FROM company_ledger_entries WHERE company_id=${input.companyId}
     `);
     const payments = await db.execute(sql`
-      SELECT pay.reference, pay.status, pay.method, pay.amount, pay.developer_net_amount AS "developerNetAmount", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt", p.plot_number AS "plotNumber", e.name AS "estateName"
+      SELECT pay.reference, pay.status, pay.method, pay.purpose, pay.amount, pay.developer_net_amount AS "developerNetAmount", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt", p.plot_number AS "plotNumber", e.name AS "estateName"
       FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id
       WHERE pay.company_id=${input.companyId} ORDER BY pay.created_at DESC LIMIT 100
     `);
@@ -194,7 +202,7 @@ export const paymentRouter = {
   adminQueue: protectedProcedure.handler(async ({ context }) => {
     await requireAdmin(requireUserId(context));
     const payments = await db.execute(sql`
-      SELECT pay.reference, pay.provider, pay.provider_reference AS "providerReference", pay.status, pay.method, pay.amount, pay.currency,
+      SELECT pay.reference, pay.provider, pay.provider_reference AS "providerReference", pay.status, pay.method, pay.purpose, pay.amount, pay.currency,
         pay.bank_transfer_reference AS "bankTransferReference", pay.failure_reason AS "failureReason", pay.created_at AS "createdAt", pay.confirmed_at AS "confirmedAt",
         r.reference AS "reservationReference", p.plot_number AS "plotNumber", e.name AS "estateName", c.legal_name AS "companyName", u.email AS "buyerEmail"
       FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=pay.company_id JOIN users u ON u.id=pay.buyer_user_id
@@ -223,45 +231,67 @@ export const paymentRouter = {
         UPDATE payments pay SET status='SUCCEEDED', confirmed_at=now(), updated_at=now()
         FROM reservations r, plots p
         WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION'
-          AND r.id=pay.reservation_id AND r.status='PAYMENT_PENDING' AND p.id=r.plot_id AND p.status='RESERVED'
-        RETURNING pay.id, pay.reference, pay.reservation_id, pay.company_id, pay.developer_net_amount, pay.currency
-      ), confirmed AS (
-        UPDATE reservations SET status='CONFIRMED', updated_at=now() WHERE id=(SELECT reservation_id FROM paid) AND status='PAYMENT_PENDING' RETURNING plot_id
+          AND r.id=pay.reservation_id AND p.id=r.plot_id AND p.status='RESERVED'
+          AND ((pay.purpose='PURCHASE' AND r.status='PURCHASE_IN_PROGRESS')
+            OR (pay.purpose='HOLD_FEE' AND r.status='HOLD_PAYMENT_PENDING'))
+        RETURNING pay.id, pay.reference, pay.reservation_id, pay.company_id, pay.developer_net_amount, pay.currency, pay.purpose
+      ), transitioned AS (
+        UPDATE reservations r SET
+          status=CASE WHEN paid.purpose='HOLD_FEE' THEN 'HELD' ELSE 'SOLD' END,
+          hold_started_at=CASE WHEN paid.purpose='HOLD_FEE' THEN now() ELSE r.hold_started_at END,
+          activated_at=now(),
+          expires_at=CASE WHEN paid.purpose='HOLD_FEE' THEN now() + make_interval(mins => r.hold_duration_minutes_snapshot) ELSE r.expires_at END,
+          updated_at=now()
+        FROM paid WHERE r.id=paid.reservation_id
+        RETURNING r.id, r.reference, r.plot_id, r.status, paid.purpose
       ), sold AS (
-        UPDATE plots SET status='SOLD', updated_at=now() WHERE id=(SELECT plot_id FROM confirmed) AND status='RESERVED'
+        UPDATE plots SET status='SOLD', updated_at=now()
+        WHERE id=(SELECT plot_id FROM transitioned WHERE purpose='PURCHASE') AND status='RESERVED'
       ), ledgered AS (
         INSERT INTO company_ledger_entries (company_id, payment_id, type, status, amount, currency, description, available_at)
-        SELECT company_id, id, 'SALE_CREDIT', 'AVAILABLE', developer_net_amount, currency, 'Verified plot purchase ' || reference, now() FROM paid
-        ON CONFLICT (payment_id, type) DO NOTHING
+        SELECT company_id, id, 'SALE_CREDIT', 'AVAILABLE', developer_net_amount, currency, 'Verified plot purchase ' || reference, now()
+        FROM paid WHERE purpose='PURCHASE' ON CONFLICT (payment_id, type) DO NOTHING
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.approved:' || id::text, 'payment.approved', 'PENDING_CONFIRMATION', 'SUCCEEDED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text) FROM paid
+        SELECT id, 'payment.approved:' || id::text, CASE WHEN purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'payment.approved' END,
+          'PENDING_CONFIRMATION', 'SUCCEEDED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text, 'purpose', purpose) FROM paid
         ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
-        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason)
-        SELECT ${admin.id}, 'payment.approved', 'payment', id::text, ${input.reason} FROM paid
+        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata)
+        SELECT ${admin.id}, CASE WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'reservation.sold' END,
+          'reservation', id::text, ${input.reason}, jsonb_build_object('status', status, 'purpose', purpose) FROM transitioned
       ), outboxed AS (
         INSERT INTO outbox_events (topic, aggregate_id, payload)
-        SELECT 'payment.succeeded', id::text, jsonb_build_object('paymentId', id, 'reference', reference) FROM paid
-      ) SELECT reference, 'SUCCEEDED' AS status FROM paid WHERE EXISTS (SELECT 1 FROM confirmed)
+        SELECT CASE WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'payment.succeeded' END,
+          CASE WHEN purpose='HOLD_FEE' THEN reservation_id::text ELSE id::text END,
+          jsonb_build_object('paymentId', id, 'reservationId', reservation_id, 'reference', reference, 'purpose', purpose) FROM paid
+      ) SELECT paid.reference, 'SUCCEEDED' AS status, paid.purpose, transitioned.status AS "reservationStatus"
+        FROM paid JOIN transitioned ON transitioned.id=paid.reservation_id
     `) : await db.execute(sql`
       WITH failed AS (
         UPDATE payments pay SET status='FAILED', failed_at=now(), failure_reason=${input.reason}, updated_at=now()
         FROM reservations r WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION'
-          AND r.id=pay.reservation_id AND r.status='PAYMENT_PENDING'
-        RETURNING pay.id, pay.reference, pay.reservation_id
+          AND r.id=pay.reservation_id
+          AND ((pay.purpose='PURCHASE' AND r.status='PURCHASE_IN_PROGRESS')
+            OR (pay.purpose='HOLD_FEE' AND r.status='HOLD_PAYMENT_PENDING'))
+        RETURNING pay.id, pay.reference, pay.reservation_id, pay.purpose
       ), cancelled AS (
-        UPDATE reservations SET status='CANCELLED', cancelled_at=now(), cancellation_reason=${input.reason}, updated_at=now()
-        WHERE id=(SELECT reservation_id FROM failed) AND status='PAYMENT_PENDING' RETURNING plot_id
+        UPDATE reservations r SET status='CANCELLED', cancelled_at=now(), cancellation_reason=${input.reason},
+          released_at=now(), release_reason=${input.reason}, updated_at=now()
+        FROM failed WHERE r.id=failed.reservation_id RETURNING r.id, r.plot_id, failed.purpose
       ), released AS (
         UPDATE plots SET status='AVAILABLE', updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED'
       ), evented AS (
         INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.rejected:' || id::text, 'payment.rejected', 'PENDING_CONFIRMATION', 'FAILED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text) FROM failed ON CONFLICT (event_key) DO NOTHING
+        SELECT id, 'payment.rejected:' || id::text, 'payment.rejected', 'PENDING_CONFIRMATION', 'FAILED', ${admin.id},
+          jsonb_build_object('reason', ${input.reason}::text, 'purpose', purpose) FROM failed ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
-        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason)
-        SELECT ${admin.id}, 'payment.rejected', 'payment', id::text, ${input.reason} FROM failed
-      ) SELECT reference, 'FAILED' AS status FROM failed
+        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata)
+        SELECT ${admin.id}, 'reservation.payment_rejected', 'reservation', id::text, ${input.reason}, jsonb_build_object('purpose', purpose) FROM cancelled
+      ), outboxed AS (
+        INSERT INTO outbox_events (topic, aggregate_id, payload)
+        SELECT 'plot.available', plot_id::text, jsonb_build_object('plotId', plot_id) FROM cancelled
+      ) SELECT reference, 'FAILED' AS status, purpose FROM failed
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only payments awaiting verification can be reviewed." });
     return result.rows[0];

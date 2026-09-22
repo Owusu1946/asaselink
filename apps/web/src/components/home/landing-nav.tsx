@@ -67,6 +67,7 @@ export function LandingNav() {
             >
               For companies
             </Link>
+            <Link href="/viability" className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-full px-2.5 py-1">Check land</Link>
           </div>
 
           {/* Integrated Capsule Action */}
@@ -175,6 +176,7 @@ export function LandingNav() {
               <span>For companies</span>
               <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" />
             </Link>
+            <Link href="/viability" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"><span>Check land viability</span><HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" /></Link>
 
             <div className="my-2 border-t border-border" />
 

@@ -5,7 +5,7 @@ import { client } from "@/utils/orpc";
 import { notify } from "@/utils/notify";
 
 type Row = Record<string, unknown>;
-const statuses = ["ALL", "ACTIVE", "PAYMENT_PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"] as const;
+const statuses = ["ALL", "CHECKOUT_LOCKED", "HOLD_PAYMENT_PENDING", "HELD", "PURCHASE_IN_PROGRESS", "SOLD", "CANCELLED", "EXPIRED", "RELEASED"] as const;
 
 export function ReservationInvestigation({ initialRows }: { initialRows: Row[] }) {
   const [rows, setRows] = useState(initialRows); const [search, setSearch] = useState(""); const [status, setStatus] = useState<(typeof statuses)[number]>("ALL");
