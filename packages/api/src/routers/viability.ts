@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@asaselink/db";
-import { auditLogs, viabilityChecks } from "@asaselink/db/schema";
+import { auditLogs, geometryVersions, viabilityChecks } from "@asaselink/db/schema";
 import { protectedProcedure, publicProcedure } from "../index";
 import { polygonSchema } from "../domain/geometry";
 import { aggregateViabilityResult, type ViabilitySeverity } from "../domain/viability";
@@ -129,7 +129,10 @@ export const viabilityRouter = {
     `);
     const concern = inserted.rows[0];
     if (!concern) throw new ORPCError("BAD_REQUEST", { message: "Keep the concern area completely inside this estate boundary." });
-    await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.concern.declared", entityType: "screening_layer", entityId: String((concern as { id: string }).id), reason: input.sourceNote, metadata: { estateId: input.estateId, companyId: input.companyId, kind: input.kind, severity: input.severity } });
+    await Promise.all([
+      db.insert(auditLogs).values({ userId: access.user.id, action: "estate.concern.declared", entityType: "screening_layer", entityId: String((concern as { id: string }).id), reason: input.sourceNote, metadata: { estateId: input.estateId, companyId: input.companyId, kind: input.kind, severity: input.severity } }),
+      db.insert(geometryVersions).values({ resourceType: "screening_layer", resourceId: String((concern as { id: string }).id), action: "created", afterGeometry: input.boundary, actorUserId: access.user.id, reason: input.sourceNote }),
+    ]);
     return concern;
   }),
 
@@ -142,11 +145,14 @@ export const viabilityRouter = {
       FROM estates e
       WHERE sl.id = ${input.concernId} AND sl.estate_id = e.id AND e.company_id = ${input.companyId}
         AND sl.provenance = 'company_declared' AND sl.active = true
-      RETURNING sl.id, sl.estate_id AS "estateId", sl.name
+      RETURNING sl.id, sl.estate_id AS "estateId", sl.name, ST_AsGeoJSON(sl.boundary)::json AS boundary
     `);
-    const removed = rows.rows[0] as { id: string; estateId: string; name: string } | undefined;
+    const removed = rows.rows[0] as { id: string; estateId: string; name: string; boundary: { type: "MultiPolygon"; coordinates: number[][][][] } } | undefined;
     if (!removed) throw new ORPCError("NOT_FOUND");
-    await db.insert(auditLogs).values({ userId: access.user.id, action: "estate.concern.removed", entityType: "screening_layer", entityId: removed.id, reason: input.reason, metadata: { estateId: removed.estateId, companyId: input.companyId, name: removed.name } });
+    await Promise.all([
+      db.insert(auditLogs).values({ userId: access.user.id, action: "estate.concern.removed", entityType: "screening_layer", entityId: removed.id, reason: input.reason, metadata: { estateId: removed.estateId, companyId: input.companyId, name: removed.name } }),
+      db.insert(geometryVersions).values({ resourceType: "screening_layer", resourceId: removed.id, action: "removed", beforeGeometry: removed.boundary, afterGeometry: removed.boundary, actorUserId: access.user.id, reason: input.reason }),
+    ]);
     return { removed: true };
   }),
 };

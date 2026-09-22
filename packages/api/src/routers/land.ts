@@ -49,17 +49,19 @@ export const landRouter = {
       SELECT gv.id, gv.resource_type AS "resourceType", gv.resource_id AS "resourceId",
         gv.action, gv.reason, gv.approval_state AS "approvalState", gv.created_at AS "createdAt",
         gv.after_geometry AS geometry,
-        COALESCE(direct_estate.id, plot_estate.id) AS "estateId",
-        COALESCE(direct_estate.name, plot_estate.name) AS "estateName",
+        COALESCE(direct_estate.id, plot_estate.id, concern_estate.id) AS "estateId",
+        COALESCE(direct_estate.name, plot_estate.name, concern_estate.name) AS "estateName",
         p.plot_number AS "plotNumber",
         COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Workspace member') AS actor
       FROM geometry_versions gv
       LEFT JOIN estates direct_estate ON gv.resource_type = 'estate' AND direct_estate.id = gv.resource_id
       LEFT JOIN plots p ON gv.resource_type = 'plot' AND p.id = gv.resource_id
       LEFT JOIN estates plot_estate ON plot_estate.id = p.estate_id
+      LEFT JOIN screening_layers sl ON gv.resource_type = 'screening_layer' AND sl.id = gv.resource_id
+      LEFT JOIN estates concern_estate ON concern_estate.id = sl.estate_id
       LEFT JOIN users u ON u.id = gv.actor_user_id
-      WHERE COALESCE(direct_estate.company_id, plot_estate.company_id) = ${input.companyId}
-        AND (${selectedEstateId}::uuid IS NULL OR COALESCE(direct_estate.id, plot_estate.id) = ${selectedEstateId})
+      WHERE COALESCE(direct_estate.company_id, plot_estate.company_id, concern_estate.company_id) = ${input.companyId}
+        AND (${selectedEstateId}::uuid IS NULL OR COALESCE(direct_estate.id, plot_estate.id, concern_estate.id) = ${selectedEstateId})
       ORDER BY gv.created_at DESC LIMIT 250
     `);
     return result.rows;
