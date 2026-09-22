@@ -227,71 +227,93 @@ export const paymentRouter = {
     await enforceRateLimit(clerkId, "admin.payment.review", 60);
     const admin = await requireAdmin(clerkId);
     const result = input.decision === "APPROVE" ? await db.execute(sql`
-      WITH paid AS (
-        UPDATE payments pay SET status='SUCCEEDED', confirmed_at=now(), updated_at=now()
-        FROM reservations r, plots p
-        WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION'
-          AND r.id=pay.reservation_id AND p.id=r.plot_id AND p.status='RESERVED'
-          AND ((pay.purpose='PURCHASE' AND r.status='PURCHASE_IN_PROGRESS')
-            OR (pay.purpose='HOLD_FEE' AND r.status='HOLD_PAYMENT_PENDING'))
-        RETURNING pay.id, pay.reference, pay.reservation_id, pay.company_id, pay.developer_net_amount, pay.currency, pay.purpose
+      WITH candidate AS MATERIALIZED (
+        SELECT pay.id,pay.reference,pay.reservation_id,pay.company_id,pay.developer_net_amount,pay.currency,pay.purpose,
+          r.status AS reservation_status,r.plot_id,
+          pa.id AS purchase_account_id,pa.price_snapshot,
+          coalesce(sum(CASE WHEN ple.status='CONFIRMED' AND ple.direction='CREDIT' THEN ple.amount WHEN ple.status='CONFIRMED' AND ple.direction='DEBIT' THEN -ple.amount ELSE 0 END),0) AS net_paid
+        FROM payments pay JOIN reservations r ON r.id=pay.reservation_id JOIN plots p ON p.id=r.plot_id
+        LEFT JOIN purchase_accounts pa ON pa.source_reservation_id=r.id
+        LEFT JOIN purchase_ledger_entries ple ON ple.purchase_account_id=pa.id
+        WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION' AND p.status='RESERVED'
+        GROUP BY pay.id,r.id,pa.id
+      ), paid AS (
+        UPDATE payments pay SET status='SUCCEEDED',confirmed_at=now(),updated_at=now()
+        FROM candidate c WHERE pay.id=c.id AND (
+          (c.purpose='HOLD_FEE' AND c.reservation_status='HOLD_PAYMENT_PENDING') OR
+          (c.purpose='PURCHASE' AND c.reservation_status='PURCHASE_IN_PROGRESS' AND c.purchase_account_id IS NULL) OR
+          (c.purpose IN ('DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT') AND c.purchase_account_id IS NOT NULL
+            AND c.net_paid + c.developer_net_amount <= c.price_snapshot)
+        ) RETURNING pay.id,pay.reference,pay.reservation_id,pay.company_id,pay.developer_net_amount,pay.currency,pay.purpose
+      ), purchase_ledgered AS (
+        INSERT INTO purchase_ledger_entries (purchase_account_id,payment_id,reservation_id,reference,type,direction,amount,actor_user_id,reason)
+        SELECT c.purchase_account_id,paid.id,paid.reservation_id,'LED-'||replace(gen_random_uuid()::text,'-',''),paid.purpose,'CREDIT',paid.developer_net_amount,${admin.id},${input.reason}
+        FROM paid JOIN candidate c ON c.id=paid.id WHERE paid.purpose IN ('DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT')
+        ON CONFLICT (payment_id,type) DO NOTHING RETURNING purchase_account_id
+      ), purchase_totals AS (
+        SELECT pa.id,pa.price_snapshot,
+          coalesce(sum(CASE WHEN ple.status='CONFIRMED' AND ple.direction='CREDIT' THEN ple.amount WHEN ple.status='CONFIRMED' AND ple.direction='DEBIT' THEN -ple.amount ELSE 0 END),0) AS net_paid
+        FROM purchase_accounts pa JOIN purchase_ledgered inserted ON inserted.purchase_account_id=pa.id
+        LEFT JOIN purchase_ledger_entries ple ON ple.purchase_account_id=pa.id GROUP BY pa.id
+      ), purchase_completed AS (
+        UPDATE purchase_accounts pa SET status='COMPLETED',completed_at=now(),updated_at=now()
+        FROM purchase_totals totals WHERE pa.id=totals.id AND totals.net_paid=totals.price_snapshot
+        RETURNING pa.id,pa.source_reservation_id
       ), transitioned AS (
         UPDATE reservations r SET
-          status=CASE WHEN paid.purpose='HOLD_FEE' THEN 'HELD' ELSE 'SOLD' END,
+          status=CASE WHEN paid.purpose='HOLD_FEE' THEN 'HELD'
+            WHEN paid.purpose='PURCHASE' OR purchase_completed.id IS NOT NULL THEN 'SOLD' ELSE r.status END,
           hold_started_at=CASE WHEN paid.purpose='HOLD_FEE' THEN now() ELSE r.hold_started_at END,
-          activated_at=now(),
-          expires_at=CASE WHEN paid.purpose='HOLD_FEE' THEN now() + make_interval(mins => r.hold_duration_minutes_snapshot) ELSE r.expires_at END,
+          activated_at=CASE WHEN paid.purpose IN ('HOLD_FEE','PURCHASE') OR purchase_completed.id IS NOT NULL THEN now() ELSE r.activated_at END,
+          expires_at=CASE WHEN paid.purpose='HOLD_FEE' THEN now()+make_interval(mins=>r.hold_duration_minutes_snapshot) ELSE r.expires_at END,
           updated_at=now()
-        FROM paid WHERE r.id=paid.reservation_id
-        RETURNING r.id, r.reference, r.plot_id, r.status, paid.purpose
+        FROM paid LEFT JOIN purchase_completed ON purchase_completed.source_reservation_id=paid.reservation_id
+        WHERE r.id=paid.reservation_id RETURNING r.id,r.reference,r.plot_id,r.status,paid.purpose
       ), sold AS (
-        UPDATE plots SET status='SOLD', updated_at=now()
-        WHERE id=(SELECT plot_id FROM transitioned WHERE purpose='PURCHASE') AND status='RESERVED'
-      ), ledgered AS (
-        INSERT INTO company_ledger_entries (company_id, payment_id, type, status, amount, currency, description, available_at)
-        SELECT company_id, id, 'SALE_CREDIT', 'AVAILABLE', developer_net_amount, currency, 'Verified plot purchase ' || reference, now()
-        FROM paid WHERE purpose='PURCHASE' ON CONFLICT (payment_id, type) DO NOTHING
+        UPDATE plots SET status='SOLD',updated_at=now()
+        WHERE id=(SELECT plot_id FROM transitioned WHERE status='SOLD') AND status='RESERVED'
+      ), company_ledgered AS (
+        INSERT INTO company_ledger_entries (company_id,payment_id,type,status,amount,currency,description,available_at)
+        SELECT company_id,id,'SALE_CREDIT','AVAILABLE',developer_net_amount,currency,'Verified purchase payment '||reference,now()
+        FROM paid WHERE purpose IN ('PURCHASE','DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT') ON CONFLICT (payment_id,type) DO NOTHING
       ), evented AS (
-        INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.approved:' || id::text, CASE WHEN purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'payment.approved' END,
-          'PENDING_CONFIRMATION', 'SUCCEEDED', ${admin.id}, jsonb_build_object('reason', ${input.reason}::text, 'purpose', purpose) FROM paid
+        INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id,metadata)
+        SELECT id,'payment.approved:'||id::text,CASE WHEN purpose='HOLD_FEE' THEN 'hold.payment_approved' ELSE 'purchase.payment_approved' END,
+          'PENDING_CONFIRMATION','SUCCEEDED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',purpose) FROM paid
         ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
-        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata)
-        SELECT ${admin.id}, CASE WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'reservation.sold' END,
-          'reservation', id::text, ${input.reason}, jsonb_build_object('status', status, 'purpose', purpose) FROM transitioned
+        INSERT INTO audit_logs (user_id,action,entity_type,entity_id,reason,metadata)
+        SELECT ${admin.id},CASE WHEN status='SOLD' THEN 'reservation.sold' WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'purchase.payment_confirmed' END,
+          'reservation',id::text,${input.reason},jsonb_build_object('status',status,'purpose',purpose) FROM transitioned
       ), outboxed AS (
-        INSERT INTO outbox_events (topic, aggregate_id, payload)
-        SELECT CASE WHEN purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'payment.succeeded' END,
-          CASE WHEN purpose='HOLD_FEE' THEN reservation_id::text ELSE id::text END,
-          jsonb_build_object('paymentId', id, 'reservationId', reservation_id, 'reference', reference, 'purpose', purpose) FROM paid
-      ) SELECT paid.reference, 'SUCCEEDED' AS status, paid.purpose, transitioned.status AS "reservationStatus"
+        INSERT INTO outbox_events (topic,aggregate_id,payload)
+        SELECT CASE WHEN transitioned.status='SOLD' THEN 'purchase.completed' WHEN paid.purpose='HOLD_FEE' THEN 'reservation.hold_activated' ELSE 'purchase.payment_confirmed' END,
+          transitioned.id::text,jsonb_build_object('paymentId',paid.id,'reservationId',paid.reservation_id,'reference',paid.reference,'purpose',paid.purpose)
+        FROM paid JOIN transitioned ON transitioned.id=paid.reservation_id
+      ) SELECT paid.reference,'SUCCEEDED' AS status,paid.purpose,transitioned.status AS "reservationStatus"
         FROM paid JOIN transitioned ON transitioned.id=paid.reservation_id
     `) : await db.execute(sql`
       WITH failed AS (
-        UPDATE payments pay SET status='FAILED', failed_at=now(), failure_reason=${input.reason}, updated_at=now()
-        FROM reservations r WHERE pay.reference=${input.paymentReference} AND pay.status='PENDING_CONFIRMATION'
-          AND r.id=pay.reservation_id
-          AND ((pay.purpose='PURCHASE' AND r.status='PURCHASE_IN_PROGRESS')
-            OR (pay.purpose='HOLD_FEE' AND r.status='HOLD_PAYMENT_PENDING'))
-        RETURNING pay.id, pay.reference, pay.reservation_id, pay.purpose
+        UPDATE payments SET status='FAILED',failed_at=now(),failure_reason=${input.reason},updated_at=now()
+        WHERE reference=${input.paymentReference} AND status='PENDING_CONFIRMATION'
+        RETURNING id,reference,reservation_id,purpose
       ), cancelled AS (
-        UPDATE reservations r SET status='CANCELLED', cancelled_at=now(), cancellation_reason=${input.reason},
-          released_at=now(), release_reason=${input.reason}, updated_at=now()
-        FROM failed WHERE r.id=failed.reservation_id RETURNING r.id, r.plot_id, failed.purpose
+        UPDATE reservations r SET status='CANCELLED',cancelled_at=now(),cancellation_reason=${input.reason},released_at=now(),release_reason=${input.reason},updated_at=now()
+        FROM failed WHERE r.id=failed.reservation_id AND failed.purpose IN ('PURCHASE','HOLD_FEE')
+        RETURNING r.id,r.plot_id,failed.purpose
       ), released AS (
-        UPDATE plots SET status='AVAILABLE', updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED'
+        UPDATE plots SET status='AVAILABLE',updated_at=now() WHERE id=(SELECT plot_id FROM cancelled) AND status='RESERVED'
       ), evented AS (
-        INSERT INTO payment_events (payment_id, event_key, type, from_status, to_status, actor_user_id, metadata)
-        SELECT id, 'payment.rejected:' || id::text, 'payment.rejected', 'PENDING_CONFIRMATION', 'FAILED', ${admin.id},
-          jsonb_build_object('reason', ${input.reason}::text, 'purpose', purpose) FROM failed ON CONFLICT (event_key) DO NOTHING
+        INSERT INTO payment_events (payment_id,event_key,type,from_status,to_status,actor_user_id,metadata)
+        SELECT id,'payment.rejected:'||id::text,'payment.rejected','PENDING_CONFIRMATION','FAILED',${admin.id},jsonb_build_object('reason',${input.reason}::text,'purpose',purpose)
+        FROM failed ON CONFLICT (event_key) DO NOTHING
       ), audited AS (
-        INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason, metadata)
-        SELECT ${admin.id}, 'reservation.payment_rejected', 'reservation', id::text, ${input.reason}, jsonb_build_object('purpose', purpose) FROM cancelled
+        INSERT INTO audit_logs (user_id,action,entity_type,entity_id,reason,metadata)
+        SELECT ${admin.id},'payment.rejected','payment',id::text,${input.reason},jsonb_build_object('purpose',purpose) FROM failed
       ), outboxed AS (
-        INSERT INTO outbox_events (topic, aggregate_id, payload)
-        SELECT 'plot.available', plot_id::text, jsonb_build_object('plotId', plot_id) FROM cancelled
-      ) SELECT reference, 'FAILED' AS status, purpose FROM failed
+        INSERT INTO outbox_events (topic,aggregate_id,payload)
+        SELECT 'plot.available',plot_id::text,jsonb_build_object('plotId',plot_id) FROM cancelled
+      ) SELECT reference,'FAILED' AS status,purpose FROM failed
     `);
     if (!result.rows[0]) throw new ORPCError("CONFLICT", { message: "Only payments awaiting verification can be reviewed." });
     return result.rows[0];
