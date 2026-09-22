@@ -57,7 +57,9 @@ export const payments = pgTable(
     uniqueIndex("payments_provider_reference_uq").on(table.provider, table.providerReference),
     uniqueIndex("payments_one_open_reservation_uq")
       .on(table.reservationId)
-      .where(sql`${table.status} in ('INITIATED','PENDING_CONFIRMATION')`),
+      .where(
+        sql`${table.status} in ('INITIATED','SUBMITTED','UNDER_VERIFICATION','PENDING_CONFIRMATION')`,
+      ),
     index("payments_buyer_created_idx").on(table.buyerUserId, table.createdAt),
     index("payments_company_status_idx").on(table.companyId, table.status),
     check("payments_provider_check", sql`${table.provider} in ('MOCK')`),

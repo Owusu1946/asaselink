@@ -1,4 +1,10 @@
-import { MAX_PAYMENT_PROOF_BYTES, PAYMENT_PROOF_MIME_TYPES } from "../storage/r2";
+const MAX_PAYMENT_PROOF_BYTES = 10 * 1024 * 1024;
+const PAYMENT_PROOF_MIME_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
 
 export function validatePaymentProofFile(input: { mimeType: string; fileSize: number }) {
   if (!(PAYMENT_PROOF_MIME_TYPES as readonly string[]).includes(input.mimeType))

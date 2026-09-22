@@ -1,0 +1,2 @@
+DROP INDEX "payments_one_open_reservation_uq";--> statement-breakpoint
+CREATE UNIQUE INDEX "payments_one_open_reservation_uq" ON "payments" USING btree ("reservation_id") WHERE "payments"."status" in ('INITIATED','SUBMITTED','UNDER_VERIFICATION','PENDING_CONFIRMATION');

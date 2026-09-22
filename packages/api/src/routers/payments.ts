@@ -292,7 +292,7 @@ export const paymentRouter = {
         SELECT * FROM created UNION ALL
         SELECT p.id, p.reference, p.reservation_id, p.status, p.method, p.purpose, p.amount, p.currency, p.created_at AS "createdAt"
         FROM payments p JOIN eligible e ON e.id=p.reservation_id
-        WHERE p.status IN ('INITIATED','PENDING_CONFIRMATION','SUCCEEDED') AND NOT EXISTS (SELECT 1 FROM created)
+        WHERE p.status IN ('INITIATED','SUBMITTED','UNDER_VERIFICATION','PENDING_CONFIRMATION','SUCCEEDED') AND NOT EXISTS (SELECT 1 FROM created)
         ORDER BY "createdAt" DESC LIMIT 1
       ), moved AS (
         UPDATE reservations SET status='PURCHASE_IN_PROGRESS', updated_at=now()
