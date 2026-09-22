@@ -527,7 +527,7 @@ export const paymentRouter = {
         INSERT INTO purchase_ledger_entries (purchase_account_id,payment_id,reservation_id,reference,type,direction,amount,actor_user_id,reason)
         SELECT c.purchase_account_id,paid.id,paid.reservation_id,'LED-'||replace(gen_random_uuid()::text,'-',''),paid.purpose,'CREDIT',paid.developer_net_amount,${admin.id},${input.reason}
         FROM paid JOIN candidate c ON c.id=paid.id WHERE paid.purpose IN ('DEPOSIT','INSTALLMENT','BALANCE','FINAL_PAYMENT')
-        ON CONFLICT (payment_id,type) DO NOTHING RETURNING purchase_account_id
+        ON CONFLICT DO NOTHING RETURNING purchase_account_id
       ), purchase_totals AS (
         SELECT pa.id,pa.price_snapshot,
           coalesce(sum(CASE WHEN ple.status='CONFIRMED' AND ple.direction='CREDIT' THEN ple.amount WHEN ple.status='CONFIRMED' AND ple.direction='DEBIT' THEN -ple.amount ELSE 0 END),0) AS net_paid
