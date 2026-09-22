@@ -122,10 +122,12 @@ export const reservationRouter = {
         r.cancelled_at AS "cancelledAt", r.cancellation_reason AS "cancellationReason", r.created_at AS "createdAt",
         p.plot_number AS "plotNumber", p.status AS "plotStatus", e.id AS "estateId", e.name AS "estateName",
         u.email AS "buyerEmail", u.first_name AS "buyerFirstName", u.last_name AS "buyerLastName", u.phone_number AS "buyerPhone",
-        pay.reference AS "paymentReference", pay.status AS "paymentStatus", pay.method AS "paymentMethod", pay.created_at AS "paymentCreatedAt"
+        pay.reference AS "paymentReference", pay.status AS "paymentStatus", pay.method AS "paymentMethod", pay.created_at AS "paymentCreatedAt",
+        refund.status AS "refundStatus", refund.amount AS "refundAmount"
       FROM reservations r
       JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN users u ON u.id=r.buyer_user_id
       LEFT JOIN LATERAL (SELECT reference, status, method, created_at FROM payments WHERE reservation_id=r.id ORDER BY created_at DESC LIMIT 1) pay ON true
+      LEFT JOIN reservation_refunds refund ON refund.reservation_id=r.id
       WHERE e.company_id=${input.companyId}
         AND (${input.status}='ALL' OR r.status=${input.status})
         AND (${search}::text IS NULL OR r.reference ILIKE ${search} OR p.plot_number ILIKE ${search} OR e.name ILIKE ${search}
@@ -180,9 +182,11 @@ export const reservationRouter = {
         r.cancellation_reason AS "cancellationReason", p.plot_number AS "plotNumber", p.status AS "plotStatus",
         e.name AS "estateName", c.legal_name AS "companyName", u.email AS "buyerEmail",
         concat_ws(' ',u.first_name,u.last_name) AS "buyerName", u.phone_number AS "buyerPhone",
-        pay.reference AS "paymentReference", pay.provider_reference AS "providerReference", pay.status AS "paymentStatus", pay.method AS "paymentMethod", pay.failure_reason AS "paymentFailureReason"
+        pay.reference AS "paymentReference", pay.provider_reference AS "providerReference", pay.status AS "paymentStatus", pay.method AS "paymentMethod", pay.failure_reason AS "paymentFailureReason",
+        refund.status AS "refundStatus", refund.amount AS "refundAmount", refund.deduction AS "refundDeduction"
       FROM reservations r JOIN plots p ON p.id=r.plot_id JOIN estates e ON e.id=p.estate_id JOIN companies c ON c.id=e.company_id JOIN users u ON u.id=r.buyer_user_id
       LEFT JOIN LATERAL (SELECT reference, provider_reference, status, method, failure_reason FROM payments WHERE reservation_id=r.id ORDER BY created_at DESC LIMIT 1) pay ON true
+      LEFT JOIN reservation_refunds refund ON refund.reservation_id=r.id
       WHERE (${input.status}='ALL' OR r.status=${input.status})
         AND (${search}::text IS NULL OR r.reference ILIKE ${search} OR p.plot_number ILIKE ${search} OR e.name ILIKE ${search} OR c.legal_name ILIKE ${search} OR coalesce(u.email,'') ILIKE ${search} OR coalesce(pay.reference,'') ILIKE ${search})
       ORDER BY r.created_at DESC LIMIT 300

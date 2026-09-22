@@ -16,14 +16,19 @@ export function EstateDetailClient({ slug, boundary, plots }: { slug: string; bo
   const [selected, setSelected] = useState<PublicPlot | null>(() => plots.find((plot) => plot.status === "AVAILABLE") ?? null);
   const [reservationError, setReservationError] = useState<string | null>(null);
   const [landmarks, setLandmarks] = useState<NearbyLandmark[]>([]);
+  const [terms, setTerms] = useState<Record<string, unknown> | null>(null);
   const [isPending, startTransition] = useTransition();
   const { isSignedIn } = useAuth();
   const router = useRouter();
   useEffect(() => { router.prefetch("/account/reservations"); }, [router]);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    void client.reservations.commercialTerms().then((value) => setTerms(value as Record<string, unknown>)).catch(() => undefined);
+  }, [isSignedIn]);
   const selectPlot = useCallback((plot: PublicPlot) => setSelected(plot), []);
   const updateLandmarks = useCallback((next: NearbyLandmark[]) => setLandmarks(next), []);
 
-  function reserve() {
+  function reserve(type: "CHECKOUT_LOCK" | "PAID_HOLD") {
     if (!selected) return;
     const returnUrl = `/estates/${slug}?plot=${selected.id}`;
     if (!isSignedIn) { router.push(`/sign-in?intent=buyer&redirect_url=${encodeURIComponent(returnUrl)}`); return; }
@@ -34,8 +39,8 @@ export function EstateDetailClient({ slug, boundary, plots }: { slug: string; bo
     setLivePlots((current) => current.map((plot) => plot.id === previous.id ? reserved : plot));
     startTransition(async () => {
       try {
-        const reservation = await client.reservations.create({ plotId: previous.id });
-        notify.success("Plot reserved", { description: `${previous.plotNumber} has been secured for you.` });
+        const reservation = await client.reservations.create({ plotId: previous.id, type });
+        notify.success(type === "PAID_HOLD" ? "Hold payment started" : "Checkout started", { description: `${previous.plotNumber} is temporarily secured for you.` });
         router.push(`/reservations/${String(reservation.reference)}/created`);
       } catch (error) {
         setSelected(previous);
@@ -49,6 +54,6 @@ export function EstateDetailClient({ slug, boundary, plots }: { slug: string; bo
 
   return <div className="grid gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(19rem,0.75fr)]">
     <EstatePlotMap estateBoundary={boundary} plots={livePlots} landmarks={landmarks} onSelect={selectPlot} />
-    <aside className="rounded-2xl border border-border bg-card p-5 sm:p-6"><h2 className="text-lg font-semibold">Plot inventory</h2><p className="mt-1 text-sm text-muted-foreground">Select a boundary on the map or choose a plot below.</p><div className="mt-5 max-h-72 space-y-2 overflow-y-auto pr-1">{livePlots.map((plot) => <button key={plot.id} type="button" onClick={() => setSelected(plot)} className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected?.id === plot.id ? "border-brand-gold-500 bg-brand-gold-50 dark:bg-brand-gold-950/30" : "border-border hover:bg-muted"}`}><span><strong className="block">{plot.plotNumber}</strong><span className="text-xs text-muted-foreground">{Number(plot.areaSquareMeters).toLocaleString()} m²</span></span><span className="text-right"><strong className="block">GHS {Number(plot.price).toLocaleString()}</strong><span className="text-xs capitalize text-muted-foreground">{plot.status.toLowerCase()}</span></span></button>)}</div>{livePlots.length === 0 ? <p className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">No plots have been published for this estate yet.</p> : null}{selected ? <div className="mt-5 border-t border-border pt-5"><p className="font-semibold">{selected.plotNumber}</p><p className="mt-1 text-sm text-muted-foreground">Availability is confirmed again before reservation.</p><NearbyLandmarks plotId={selected.id} boundary={selected.boundary} onChange={updateLandmarks} />{reservationError ? <p role="alert" className="mt-3 text-sm text-destructive">{reservationError}</p> : null}<Link href="/viability" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">Check land viability</Link><Button type="button" onClick={reserve} disabled={selected.status !== "AVAILABLE" || isPending} className="mt-3 h-12 w-full rounded-xl">{isPending ? "Securing plot…" : selected.status === "AVAILABLE" ? "Reserve this plot" : "Plot unavailable"}</Button></div> : null}</aside>
+    <aside className="rounded-2xl border border-border bg-card p-5 sm:p-6"><h2 className="text-lg font-semibold">Plot inventory</h2><p className="mt-1 text-sm text-muted-foreground">Select a boundary on the map or choose a plot below.</p><div className="mt-5 max-h-72 space-y-2 overflow-y-auto pr-1">{livePlots.map((plot) => <button key={plot.id} type="button" onClick={() => setSelected(plot)} className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected?.id === plot.id ? "border-brand-gold-500 bg-brand-gold-50 dark:bg-brand-gold-950/30" : "border-border hover:bg-muted"}`}><span><strong className="block">{plot.plotNumber}</strong><span className="text-xs text-muted-foreground">{Number(plot.areaSquareMeters).toLocaleString()} m²</span></span><span className="text-right"><strong className="block">GHS {Number(plot.price).toLocaleString()}</strong><span className="text-xs capitalize text-muted-foreground">{plot.status.toLowerCase()}</span></span></button>)}</div>{livePlots.length === 0 ? <p className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">No plots have been published for this estate yet.</p> : null}{selected ? <div className="mt-5 border-t border-border pt-5"><p className="font-semibold">{selected.plotNumber}</p><p className="mt-1 text-sm text-muted-foreground">Availability is confirmed again before reservation.</p><NearbyLandmarks plotId={selected.id} boundary={selected.boundary} onChange={updateLandmarks} />{reservationError ? <p role="alert" className="mt-3 text-sm text-destructive">{reservationError}</p> : null}<Link href="/viability" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">Check land viability</Link><div className="mt-4 grid gap-3"><button type="button" onClick={() => reserve("CHECKOUT_LOCK")} disabled={selected.status !== "AVAILABLE" || isPending} className="rounded-xl border border-border p-4 text-left transition hover:bg-muted disabled:opacity-50"><span className="block font-semibold">Start checkout</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Free {Number(terms?.checkoutLockMinutes ?? 30)}-minute lock to complete the full purchase.</span></button><button type="button" onClick={() => reserve("PAID_HOLD")} disabled={selected.status !== "AVAILABLE" || isPending} className="rounded-xl border border-primary bg-primary/5 p-4 text-left transition hover:bg-primary/10 disabled:opacity-50"><span className="block font-semibold">Hold for 7 days · GHS {Number(terms?.holdFee ?? 500).toLocaleString()}</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Pay within {Number(terms?.holdPaymentWindowMinutes ?? 30)} minutes. Refundable amount: GHS {Math.max((Number(terms?.holdFee ?? 500) * Number(terms?.refundPercentage ?? 80) / 100) - Number(terms?.administrativeDeduction ?? 25), 0).toLocaleString()} if the hold expires.</span></button></div>{isPending ? <p className="mt-3 text-center text-xs text-muted-foreground">Securing plot…</p> : null}</div> : null}</aside>
   </div>;
 }

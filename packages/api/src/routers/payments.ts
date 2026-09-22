@@ -43,7 +43,7 @@ export const paymentRouter = {
         CASE WHEN r.type='PAID_HOLD' THEN r.hold_fee_snapshot ELSE r.price_snapshot END AS amount,
         r.price_snapshot AS "plotPrice", r.refundable_amount_snapshot AS "refundableAmount",
         r.administrative_deduction_snapshot AS "administrativeDeduction", r.terms_snapshot AS terms,
-        r.payment_deadline_at AS "paymentDeadlineAt", r.expires_at AS "expiresAt",
+        r.payment_deadline_at AS "paymentDeadlineAt", r.expires_at AS "expiresAt", now() AS "serverNow",
         p.plot_number AS "plotNumber", e.name AS "estateName", c.trade_name AS "companyName",
         pay.reference AS "paymentReference", pay.status AS "paymentStatus", pay.method, pay.purpose
       FROM reservations r

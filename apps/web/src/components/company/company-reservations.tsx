@@ -6,7 +6,7 @@ import { client } from "@/utils/orpc";
 import { notify } from "@/utils/notify";
 
 type Reservation = Record<string, unknown>;
-const statuses = ["ALL", "ACTIVE", "PAYMENT_PENDING", "CONFIRMED", "CANCELLED", "EXPIRED"] as const;
+const statuses = ["ALL", "CHECKOUT_LOCKED", "HOLD_PAYMENT_PENDING", "HELD", "PURCHASE_IN_PROGRESS", "SOLD", "CANCELLED", "EXPIRED", "RELEASED"] as const;
 
 export function CompanyReservations({ companyId, initialRows }: { companyId: string; initialRows: Reservation[] }) {
   const [rows, setRows] = useState(initialRows);
@@ -41,9 +41,9 @@ export function CompanyReservations({ companyId, initialRows }: { companyId: str
     </div>
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {visible.map((row) => <article key={String(row.id)} className="grid gap-4 border-b border-border p-5 last:border-0 md:grid-cols-[1fr_1fr_auto] md:items-center">
-        <div><p className="font-semibold">{String(row.estateName)} · Plot {String(row.plotNumber)}</p><p className="mt-1 font-mono text-xs text-muted-foreground">{String(row.reference)}</p><p className="mt-2 text-sm text-muted-foreground">{[row.buyerFirstName, row.buyerLastName].filter(Boolean).join(" ") || "Buyer"} · {String(row.buyerEmail ?? "No email")}</p></div>
+        <div><p className="font-semibold">{String(row.estateName)} · Plot {String(row.plotNumber)}</p><p className="mt-1 font-mono text-xs text-muted-foreground">{String(row.reference)}</p><p className="mt-1 text-xs font-medium text-muted-foreground">{row.type === "PAID_HOLD" ? "Paid hold" : "Checkout lock"}</p><p className="mt-2 text-sm text-muted-foreground">{[row.buyerFirstName, row.buyerLastName].filter(Boolean).join(" ") || "Buyer"} · {String(row.buyerEmail ?? "No email")}</p></div>
         <div className="text-sm"><p className="font-semibold">GHS {Number(row.priceSnapshot).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Payment: {row.paymentStatus ? String(row.paymentStatus).replaceAll("_", " ") : "Not started"}</p><p className="mt-1 text-xs text-muted-foreground">Created {new Date(String(row.createdAt)).toLocaleString("en-GH", { dateStyle: "medium", timeStyle: "short" })}</p></div>
-        <div className="flex items-center gap-2 md:flex-col md:items-end"><span className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{String(row.status).replaceAll("_", " ")}</span>{["ACTIVE", "PAYMENT_PENDING"].includes(String(row.status)) ? <Button size="sm" variant="outline" onClick={() => setCancel(row)}>Cancel</Button> : null}</div>
+        <div className="flex items-center gap-2 md:flex-col md:items-end"><span className="rounded-full border border-border px-3 py-1 text-xs font-semibold">{String(row.status).replaceAll("_", " ")}</span>{["CHECKOUT_LOCKED", "HOLD_PAYMENT_PENDING", "HELD", "PURCHASE_IN_PROGRESS"].includes(String(row.status)) ? <Button size="sm" variant="outline" onClick={() => setCancel(row)}>Cancel</Button> : null}</div>
       </article>)}
       {!visible.length ? <div className="p-12 text-center"><h2 className="font-semibold">No reservations found</h2><p className="mt-2 text-sm text-muted-foreground">Change the search or status filter.</p></div> : null}
     </div>
