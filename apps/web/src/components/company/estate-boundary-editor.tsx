@@ -8,6 +8,7 @@ import { client } from "@/utils/orpc";
 import { boundaryData, EMPTY_COLLECTION, type Position } from "./estate-boundary";
 import { PlaceAutocomplete, type PlaceSelection } from "./place-autocomplete";
 import { notify } from "@/utils/notify";
+import { getBrowserLocation } from "@/utils/browser-location";
 
 export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: string; onCreated?: (estate: { id: string; name: string; slug: string; region: string; district: string | null; status: string; priceFrom: string | null }) => void }) {
   const mapId = useId().replaceAll(":", "");
@@ -23,6 +24,9 @@ export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: stri
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -79,7 +83,39 @@ export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: stri
   function selectPlace(place: PlaceSelection) {
     setRegion(place.region ?? "");
     setDistrict(place.district ?? "");
+    setLongitude(place.coordinates[0].toFixed(6));
+    setLatitude(place.coordinates[1].toFixed(6));
     mapRef.current?.flyTo({ center: place.coordinates, zoom: 16, essential: true });
+  }
+
+  function centerOnCoordinates(coordinates: Position) {
+    setLongitude(coordinates[0].toFixed(6));
+    setLatitude(coordinates[1].toFixed(6));
+    mapRef.current?.flyTo({ center: coordinates, zoom: 17, essential: true });
+  }
+
+  function useEnteredCoordinates() {
+    const lng = Number(longitude);
+    const lat = Number(latitude);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      notify.error("Enter valid longitude and latitude values.");
+      return;
+    }
+    centerOnCoordinates([lng, lat]);
+    notify.success("Map centred on your coordinates");
+  }
+
+  async function useCurrentLocation() {
+    setIsLocating(true);
+    try {
+      const coordinates = await getBrowserLocation();
+      centerOnCoordinates(coordinates);
+      notify.success("Map centred on your current location");
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Your current location could not be determined.");
+    } finally {
+      setIsLocating(false);
+    }
   }
 
   function submit(formData: FormData) {
@@ -120,6 +156,18 @@ export function EstateBoundaryEditor({ companyId, onCreated }: { companyId: stri
             <p className="mt-2 text-sm leading-6 text-muted-foreground">Trace the estate's outer perimeter first. Add as many corners as its real shape requires; three is only the minimum.</p>
           </div>
           <PlaceAutocomplete onSelect={selectPlace} />
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold text-muted-foreground">Search not finding the land?</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="text-xs font-medium">Latitude<input value={latitude} onChange={(event) => setLatitude(event.target.value)} inputMode="decimal" placeholder="5.603700" className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+              <label className="text-xs font-medium">Longitude<input value={longitude} onChange={(event) => setLongitude(event.target.value)} inputMode="decimal" placeholder="-0.187000" className="mt-1 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <Button type="button" variant="outline" size="sm" onClick={useEnteredCoordinates}>Go to coordinates</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => void useCurrentLocation()} disabled={isLocating}>{isLocating ? "Locating…" : "Use current location"}</Button>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">This only positions the map. Click around the land afterwards to trace its boundary.</p>
+          </div>
           <label className="block text-sm font-medium">Estate name<input required name="name" value={name} onChange={(event) => { const value = event.target.value; setName(value); if (!slugEdited) setSlug(value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")); }} minLength={2} maxLength={256} className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <label className="block text-sm font-medium">URL slug<input required name="slug" value={slug} onChange={(event) => { setSlugEdited(true); setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")); }} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="east-legon-hills" className="mt-2 h-11 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           <div className="grid grid-cols-2 gap-3">

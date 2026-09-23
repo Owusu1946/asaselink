@@ -23,6 +23,7 @@
     "db:studio": "turbo run db:studio -F @asaselink/db --",
     "db:generate": "turbo run db:generate -F @asaselink/db --",
     "db:migrate": "turbo run db:migrate -F @asaselink/db --",
+    "db:seed:demo": "pnpm --filter @asaselink/db db:seed:demo",
     "deploy": "turbo run deploy -F @asaselink/infra --",
     "destroy": "turbo run destroy -F @asaselink/infra --",
     "check": "oxlint && oxfmt --write apps packages"

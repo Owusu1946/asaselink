@@ -49,17 +49,19 @@ export const landRouter = {
       SELECT gv.id, gv.resource_type AS "resourceType", gv.resource_id AS "resourceId",
         gv.action, gv.reason, gv.approval_state AS "approvalState", gv.created_at AS "createdAt",
         gv.after_geometry AS geometry,
-        COALESCE(direct_estate.id, plot_estate.id) AS "estateId",
-        COALESCE(direct_estate.name, plot_estate.name) AS "estateName",
+        COALESCE(direct_estate.id, plot_estate.id, concern_estate.id) AS "estateId",
+        COALESCE(direct_estate.name, plot_estate.name, concern_estate.name) AS "estateName",
         p.plot_number AS "plotNumber",
         COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Workspace member') AS actor
       FROM geometry_versions gv
       LEFT JOIN estates direct_estate ON gv.resource_type = 'estate' AND direct_estate.id = gv.resource_id
       LEFT JOIN plots p ON gv.resource_type = 'plot' AND p.id = gv.resource_id
       LEFT JOIN estates plot_estate ON plot_estate.id = p.estate_id
+      LEFT JOIN screening_layers sl ON gv.resource_type = 'screening_layer' AND sl.id = gv.resource_id
+      LEFT JOIN estates concern_estate ON concern_estate.id = sl.estate_id
       LEFT JOIN users u ON u.id = gv.actor_user_id
-      WHERE COALESCE(direct_estate.company_id, plot_estate.company_id) = ${input.companyId}
-        AND (${selectedEstateId}::uuid IS NULL OR COALESCE(direct_estate.id, plot_estate.id) = ${selectedEstateId})
+      WHERE COALESCE(direct_estate.company_id, plot_estate.company_id, concern_estate.company_id) = ${input.companyId}
+        AND (${selectedEstateId}::uuid IS NULL OR COALESCE(direct_estate.id, plot_estate.id, concern_estate.id) = ${selectedEstateId})
       ORDER BY gv.created_at DESC LIMIT 250
     `);
     return result.rows;
@@ -147,17 +149,26 @@ export const landRouter = {
     return { removed: true };
   }),
 
-  listPublished: publicProcedure.input(z.object({ limit: z.number().int().min(1).max(48).default(24), offset: z.number().int().min(0).default(0) }).optional()).handler(async ({ input }) => {
+  listPublished: publicProcedure.input(z.object({
+    limit: z.number().int().min(1).max(48).default(24),
+    offset: z.number().int().min(0).default(0),
+    query: z.string().trim().min(2).max(100).optional(),
+  }).optional()).handler(async ({ input }) => {
+    const query = input?.query ? `%${input.query}%` : null;
     const result = await db.execute(sql`
       SELECT e.id, e.name, e.slug, e.region, e.district, e.price_from AS "priceFrom",
         c.legal_name AS "companyName",
-        count(p.id) FILTER (WHERE p.status = 'AVAILABLE')::int AS "availablePlots"
+        count(p.id) FILTER (WHERE p.status = 'AVAILABLE')::int AS "availablePlots",
+        ST_X(ST_PointOnSurface(e.boundary))::float AS longitude,
+        ST_Y(ST_PointOnSurface(e.boundary))::float AS latitude,
+        CASE WHEN ${query}::text IS NOT NULL THEN ST_AsGeoJSON(e.boundary)::json ELSE NULL END AS "searchBoundary"
       FROM estates e
       JOIN companies c ON c.id = e.company_id
       LEFT JOIN plots p ON p.estate_id = e.id
       WHERE e.status = 'approved' AND c.status = 'approved'
+        AND (${query}::text IS NULL OR e.name ILIKE ${query} OR c.legal_name ILIKE ${query})
       GROUP BY e.id, c.legal_name
-      ORDER BY e.created_at DESC
+      ORDER BY CASE WHEN ${query}::text IS NOT NULL AND lower(e.name) = lower(${input?.query ?? ""}) THEN 0 ELSE 1 END, e.created_at DESC
       LIMIT ${input?.limit ?? 24} OFFSET ${input?.offset ?? 0}
     `);
     return result.rows;
@@ -237,6 +248,7 @@ export const landRouter = {
       if (message.includes("contained by its estate")) throw new ORPCError("BAD_REQUEST", { message: "Keep every plot corner inside the highlighted estate boundary. Small edge differences up to one metre are snapped automatically." });
       if (message.includes("overlaps an existing plot")) throw new ORPCError("CONFLICT", { message: "This boundary overlaps a plot already registered in the estate." });
       if (message.includes("restricted area")) throw new ORPCError("BAD_REQUEST", { message: "This plot crosses a restricted area. Adjust its boundary and try again." });
+      if (message.includes("company-declared concern")) throw new ORPCError("BAD_REQUEST", { message: "This plot crosses a concern area declared for the estate. Review the marked area before mapping this plot." });
       throw error;
     }
     if (!created) throw new ORPCError("INTERNAL_SERVER_ERROR");
@@ -245,7 +257,7 @@ export const landRouter = {
     await Promise.all([
       db.insert(geometryVersions).values({ resourceType: "plot", resourceId: created.id, action: "created", afterGeometry: savedBoundary, actorUserId: access.user.id, reason: input.reason }),
       db.insert(auditLogs).values({ userId: access.user.id, action: "plot.created", entityType: "plot", entityId: created.id, reason: input.reason, metadata: { estateId: input.estateId } }),
-      db.execute(sql`INSERT INTO outbox_events (topic, aggregate_id, payload) SELECT 'plot.available', ${created.id}, jsonb_build_object('plotId', ${created.id}) FROM estates WHERE id=${input.estateId} AND status='approved'`),
+      db.execute(sql`INSERT INTO outbox_events (topic, aggregate_id, payload) SELECT 'plot.available', ${created.id}, jsonb_build_object('plotId', ${created.id}::text) FROM estates WHERE id=${input.estateId} AND status='approved'`),
     ]);
     return { ...created, boundary: savedBoundary };
   }),

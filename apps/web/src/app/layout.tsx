@@ -16,7 +16,8 @@ const geistSans = Geist({
 
 export const metadata: Metadata = {
   title: "AsaseLink",
-  description: "Discover, understand, and reserve verified land with confidence.",
+  description:
+    "Discover platform-reviewed estate listings, inspect mapped plots, and reserve with confidence.",
 };
 
 export default function RootLayout({

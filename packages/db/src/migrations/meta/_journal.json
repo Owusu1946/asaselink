@@ -92,6 +92,69 @@
       "when": 1789385553525,
       "tag": "0012_premium_maria_hill",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790058769923,
+      "tag": "0013_eager_ares",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790075353298,
+      "tag": "0014_daily_sway",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790078564962,
+      "tag": "0015_steep_baron_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790090549204,
+      "tag": "0016_giant_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790090725889,
+      "tag": "0017_new_warbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790091552167,
+      "tag": "0018_stormy_husk",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790093307363,
+      "tag": "0019_seed-platform-bank-account",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790094979444,
+      "tag": "0020_repair-active-purchase-reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790095297919,
+      "tag": "0021_finalize-active-purchase-repair",
+      "breakpoints": true
     }
   ]
 }
